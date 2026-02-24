@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Paper Trader</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f7f7f7;
+        }
+        h1 {
+            text-align: center;
+        }
+        form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input {
+            flex: 1;
+            padding: 10px;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .result {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            font-size: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Check Stock Price</h1>
+
+    <form method="get">
+        <input type="text" name="symbol" placeholder="Enter symbol (e.g. AAPL)" value="{{ symbol }}">
+        <button type="submit">Check</button>
+    </form>
+
+    {% if price %}
+        <div class="result">
+            <strong>{{ symbol }}</strong>: ${{ price|floatformat:2 }}
+        </div>
+    {% elif symbol %}
+        <div class="result">
+            No data found for {{ symbol }}
+        </div>
+    {% endif %}
+    {% if timestamp %}
+        <p>Last updated: {{ timestamp }}</p>
+{% endif %}
+
+{% if change %}
+    {% if change > 0 %}
+        <p style="color: green;">▲ Up {{ change|floatformat:2 }}</p>
+    {% else %}
+        <p style="color: red;">▼ Down {{ change|floatformat:2 }}</p>
+    {% endif %}
+{% endif %}
+{% if dates %}
+        <canvas id="priceChart" width="400" height="200"></canvas>
+{% endif %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    {% if dates %}
+    const ctx = document.getElementById('priceChart').getContext('2d');
+
+    const priceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ dates|safe }},
+            datasets: [{
+                label: '{{ symbol }} Closing Price',
+                data: {{ closes|safe }},
+                borderColor: 'blue',
+                backgroundColor: 'rgba(0, 0, 255, 0.1)',
+                borderWidth: 2,
+                tension: 0.2,
+            }]
+        },
+        options: {
+            scales: {
+                x: { display: true },
+                y: { display: true }
+            }
+        }
+    });
+    {% endif %}
+</script> 
+<!-- The Buy/Sell Form Template -->
+
+{% if symbol %}
+<div style=" margin-top: 30px; background: white; padding: 20px; border-radius: 8px; ">
+    <h3>Trade {{ symbol }}</h3>
+    <form method="post" action="{% url 'trade' %}">
+        {% csrf_token %}
+        <input type="text" name="symbol" placeholder="Enter symbol (e.g. AAPL)" value="{{ symbol|default:'' }}">
+
+        <label>Shares: </label>
+        <input type="number" step="0.01" name="shares" required>
+
+        <label>Type:</label>
+        <select name="trade_type">
+            <option value="BUY">Buy</option>
+            <option value="SELL">Sell</option>
+        </select>
+        <button type="submit">Submit Trade</button>
+    </form>
+</div>
+{% endif %}
+</body>
+</html>
