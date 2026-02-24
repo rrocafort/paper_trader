@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from .models import Portfolio, Trade
+from .models import Portfolio, Trade, Holding
+from decimal import Decimal
 import yfinance as yf
 
 def home(request):
@@ -37,13 +38,11 @@ def home(request):
         'dates': dates,
         'closes': closes,
     })
-
-
 @login_required
 def trade(request):
     if request.method == "POST":
         symbol = request.POST.get("symbol")
-        shares = float(request.POST.get("shares"))
+        shares = Decimal(request.POST.get("shares"))
         trade_type = request.POST.get("trade_type")
 
         # Get user portfolio
@@ -52,7 +51,7 @@ def trade(request):
         # Get current price
         stock = yf.Ticker(symbol)
         data = stock.history(period="1d")
-        price = float(data['Close'].iloc[-1])
+        price = Decimal(str(data['Close'].iloc[-1]))
 
         # BUY logic
         if trade_type == "BUY":
@@ -63,10 +62,30 @@ def trade(request):
                 })
             portfolio.cash_balance -= cost
 
+            # Update holdings
+            holding, created = Holding.objects.get_or_create(
+                portfolio=portfolio,
+                symbol=symbol
+            )
+            holding.shares += shares
+            holding.save()
+
         # SELL logic
         if trade_type == "SELL":
-            # (Holdings validation comes in Step 5)
+            holding = Holding.objects.filter(
+                portfolio=portfolio,
+                symbol=symbol
+            ).first()
+
+            if not holding or holding.shares < shares:
+                return render(request, "trade_error.html", {
+                    "message": "You do not have enough shares to sell."
+                })
+
             portfolio.cash_balance += price * shares
+
+            holding.shares -= shares
+            holding.save()
 
         # Save portfolio and trade
         portfolio.save()
@@ -74,7 +93,7 @@ def trade(request):
             portfolio=portfolio,
             symbol=symbol,
             shares=shares,
-            price=price,          # FIXED
+            price=price,
             trade_type=trade_type
         )
 
