@@ -5,12 +5,12 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 600px;
+            max-width: 800px;
             margin: 40px auto;
             padding: 20px;
             background: #f7f7f7;
         }
-        h1 {
+        h1, h2, h3 {
             text-align: center;
         }
         form {
@@ -18,7 +18,7 @@
             gap: 10px;
             margin-bottom: 20px;
         }
-        input {
+        input, select {
             flex: 1;
             padding: 10px;
             font-size: 16px;
@@ -35,9 +35,63 @@
             font-size: 20px;
             text-align: center;
         }
+        table {
+            width: 100%;
+            background: white;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
     </style>
 </head>
+
 <body>
+
+    <!-- ========================= -->
+    <!--   PORTFOLIO DASHBOARD     -->
+    <!-- ========================= -->
+    <h2>Your Portfolio</h2>
+
+    <p><strong>Cash Balance:</strong> ${{ portfolio.cash_balance }}</p>
+    <p><strong>Total Portfolio Value:</strong> ${{ total_portfolio_value }}</p>
+
+    <h3>Holdings</h3>
+
+    {% if holdings %}
+    <table>
+        <tr>
+            <th>Symbol</th>
+            <th>Shares</th>
+            <th>Current Price</th>
+            <th>Market Value</th>
+            <th>Avg Cost</th>
+            <th>P/L</th>
+        </tr>
+
+        {% for h in holdings %}
+        <tr>
+            <td>{{ h.symbol }}</td>
+            <td>{{ h.shares }}</td>
+            <td>${{ h.current_price }}</td>
+            <td>${{ h.market_value }}</td>
+            <td>${{ h.avg_cost }}</td>
+            <td style="color: {% if h.profit_loss > 0 %}green{% else %}red{% endif %};">
+                ${{ h.profit_loss }}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <p>You have no holdings yet.</p>
+    {% endif %}
+
+    <!-- ========================= -->
+    <!--     STOCK LOOKUP FORM     -->
+    <!-- ========================= -->
     <h1>Check Stock Price</h1>
 
     <form method="get">
@@ -54,68 +108,118 @@
             No data found for {{ symbol }}
         </div>
     {% endif %}
+
     {% if timestamp %}
         <p>Last updated: {{ timestamp }}</p>
-{% endif %}
-
-{% if change %}
-    {% if change > 0 %}
-        <p style="color: green;">▲ Up {{ change|floatformat:2 }}</p>
-    {% else %}
-        <p style="color: red;">▼ Down {{ change|floatformat:2 }}</p>
     {% endif %}
-{% endif %}
-{% if dates %}
-        <canvas id="priceChart" width="400" height="200"></canvas>
-{% endif %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<script>
+    {% if change %}
+        {% if change > 0 %}
+            <p style="color: green;">▲ Up {{ change|floatformat:2 }}</p>
+        {% else %}
+            <p style="color: red;">▼ Down {{ change|floatformat:2 }}</p>
+        {% endif %}
+    {% endif %}
+
+    <!-- ========================= -->
+    <!--     TIMEFRAME BUTTONS     -->
+    <!-- ========================= -->
+    {% if symbol %}
+    <div style="margin-bottom: 15px; text-align:center;">
+        <a href="?symbol={{ symbol }}&range=1mo">1M</a> |
+        <a href="?symbol={{ symbol }}&range=3mo">3M</a> |
+        <a href="?symbol={{ symbol }}&range=6mo">6M</a> |
+        <a href="?symbol={{ symbol }}&range=1y">1Y</a>
+    </div>
+    {% endif %}
+
+    <!-- ========================= -->
+    <!--         CHART AREA        -->
+    <!-- ========================= -->
+    {% if dates %}
+        <canvas id="priceChart" width="400" height="200"></canvas>
+    {% endif %}
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
     {% if dates %}
     const ctx = document.getElementById('priceChart').getContext('2d');
 
     const priceChart = new Chart(ctx, {
-        type: 'line',
         data: {
             labels: {{ dates|safe }},
-            datasets: [{
-                label: '{{ symbol }} Closing Price',
-                data: {{ closes|safe }},
-                borderColor: 'blue',
-                backgroundColor: 'rgba(0, 0, 255, 0.1)',
-                borderWidth: 2,
-                tension: 0.2,
-            }]
+            datasets: [
+                {
+                    type: 'line',
+                    label: '{{ symbol }} Price',
+                    data: {{ closes|safe }},
+                    borderColor: 'blue',
+                    backgroundColor: 'rgba(0, 0, 255, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.2,
+                    yAxisID: 'y',
+                },
+                {
+                    type: 'line',
+                    label: '20-Day SMA',
+                    data: {{ sma20|safe }},
+                    borderColor: 'orange',
+                    borderWidth: 2,
+                    tension: 0.2,
+                    yAxisID: 'y',
+                },
+                {
+                    type: 'bar',
+                    label: 'Volume',
+                    data: {{ volumes|safe }},
+                    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                    yAxisID: 'y1',
+                }
+            ]
         },
         options: {
             scales: {
-                x: { display: true },
-                y: { display: true }
+                y: {
+                    type: 'linear',
+                    position: 'left',
+                    title: { display: true, text: 'Price' }
+                },
+                y1: {
+                    type: 'linear',
+                    position: 'right',
+                    title: { display: true, text: 'Volume' },
+                    grid: { drawOnChartArea: false }
+                }
             }
         }
     });
     {% endif %}
-</script> 
-<!-- The Buy/Sell Form Template -->
+    </script>
 
-{% if symbol %}
-<div style=" margin-top: 30px; background: white; padding: 20px; border-radius: 8px; ">
-    <h3>Trade {{ symbol }}</h3>
-    <form method="post" action="{% url 'trade' %}">
-        {% csrf_token %}
-        <input type="text" name="symbol" placeholder="Enter symbol (e.g. AAPL)" value="{{ symbol|default:'' }}">
+    <!-- ========================= -->
+    <!--       TRADE FORM          -->
+    <!-- ========================= -->
+    {% if symbol %}
+    <div style="margin-top: 30px; background: white; padding: 20px; border-radius: 8px;">
+        <h3>Trade {{ symbol }}</h3>
+        <form method="post" action="{% url 'trade' %}">
+            {% csrf_token %}
+            <input type="text" name="symbol" value="{{ symbol }}" readonly>
 
-        <label>Shares: </label>
-        <input type="number" step="0.01" name="shares" required>
+            <label>Shares:</label>
+            <input type="number" step="0.01" name="shares" required>
 
-        <label>Type:</label>
-        <select name="trade_type">
-            <option value="BUY">Buy</option>
-            <option value="SELL">Sell</option>
-        </select>
-        <button type="submit">Submit Trade</button>
-    </form>
-</div>
-{% endif %}
+            <label>Type:</label>
+            <select name="trade_type">
+                <option value="BUY">Buy</option>
+                <option value="SELL">Sell</option>
+            </select>
+
+            <button type="submit">Submit Trade</button>
+        </form>
+    </div>
+    {% endif %}
+
 </body>
 </html>
