@@ -1,7 +1,8 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from .models import Portfolio, Trade, Holding
+from .models import Portfolio, PortfolioSnapshot, Trade, Holding
 from decimal import Decimal
+from datetime import date
 import yfinance as yf
 import math, json
 
@@ -51,6 +52,19 @@ def home(request):
         total_value += market_value
     total_portfolio_value = portfolio.cash_balance + total_value
     
+    # Save snapshot only once per day
+    today = date.today()
+    existing = PortfolioSnapshot.objects.filter(user=request.user, date=today).first
+    if not existing:
+        PortfolioSnapshot.objects.create(
+            user=request.user,
+            total_value=total_portfolio_value
+        )
+    snapshots = PortfolioSnapshot.objects.filter(user=request.user).order_by("date")
+
+    dates = [s.date.strftime("%Y-%m-%d") for s in snapshots]
+    values = [float(s.total_value) for s in snapshots]
+    
     # -- the dictionary --- 
     holdings_data({
         "symbol": h.symbol,
@@ -61,6 +75,8 @@ def home(request):
         "profit_loss": profit_loss,
         "pl_per_share": pl_per_share,
         "percent_gain": percent_gain,
+        "perf_dates": dates,
+        "perf_values": values,
     })
     
 
