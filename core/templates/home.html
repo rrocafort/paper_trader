@@ -60,7 +60,20 @@
     <h3>Portfolio Summary</h3>
     <p><strong>Cash Balance:</strong> ${{ cash_balance|floatformat:2|intcomma }}</p>
     <p><strong>Total Portfolio Value:</strong> ${{ total_portfolio_value|floatformat:2|intcomma }}</p>
+    
     <h3>Portfolio Performance</h3>
+    <!-- Performance indicator panel -->
+    <div id="perf-indicator-panel" style="margin-bottom: 10px; text-align:center;">
+        <button id="perf-indicator-toggle" style="padding: 6px 12px; cursor: pointer;">
+            Performance Indicators ▼
+        </button>
+
+        <div id="perf-indicator-options" style="display: none; margin-top: 10px;">
+            <label><input type="checkbox" class="perf-checkbox" data-target="Total Portfolio Value" checked> Total Value</label><br>
+            <label><input type="checkbox" class="perf-checkbox" data-target="7‑Day SMA" checked> SMA7</label><br>
+            <label><input type="checkbox" class="perf-checkbox" data-target="30‑Day SMA" checked> SMA30</label><br>
+        </div>
+    </div>
     <div style="height: 300px;">
         <canvas id="portfolioPerformanceChart"></canvas>
     </div>
@@ -113,6 +126,30 @@
                 }
             }
         }
+    });
+</script>
+<script>
+    // Toggle panel open/close
+    document.getElementById("perf-indicator-toggle").onclick = function () {
+        const panel = document.getElementById("perf-indicator-options");
+        panel.style.display = panel.style.display === "none" ? "block" : "none";
+    };
+
+    // Toggle datasets
+    function togglePerfDataset(chart, label, show) {
+        chart.data.datasets.forEach(ds => {
+            if (ds.label === label) {
+                ds.hidden = !show;
+            }
+        });
+        chart.update();
+    }
+
+    // Attach checkbox listeners
+    document.querySelectorAll(".perf-checkbox").forEach(box => {
+        box.addEventListener("change", function () {
+            togglePerfDataset(perfChart, this.dataset.target, this.checked);
+        });
     });
 </script>
     
