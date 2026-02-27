@@ -19,17 +19,15 @@ def home(request):
     # -----------------------------
     holdings_data = []
     total_value = Decimal("0")
-   
+
     for h in holdings:
         stock = yf.Ticker(h.symbol)
         data = stock.history(period="1d")
 
-        # fallback for symbols with limited data
-        if data.empty and range_option =="1y":
+        if data.empty and range_option == "1y":
             data = stock.history(period="12mo")
-        # ---------------------------------------
-        current_price = Decimal(str(data["Close"].iloc[-1]))
 
+        current_price = Decimal(str(data["Close"].iloc[-1]))
         market_value = current_price * h.shares
 
         trades = Trade.objects.filter(portfolio=portfolio, symbol=h.symbol)
@@ -50,47 +48,73 @@ def home(request):
         percent_gain = (pl_per_share / avg_cost * 100) if avg_cost > 0 else Decimal("0")
 
         total_value += market_value
+
+        holdings_data.append({
+            "symbol": h.symbol,
+            "shares": h.shares,
+            "current_price": current_price,
+            "market_value": market_value,
+            "avg_cost": avg_cost,
+            "profit_loss": profit_loss,
+            "pl_per_share": pl_per_share,
+            "percent_gain": percent_gain,
+        })
+
     total_portfolio_value = portfolio.cash_balance + total_value
-    
-    # Save snapshot only once per day
+
+    # -----------------------------
+    # 1B. SAVE PORTFOLIO SNAPSHOT
+    # -----------------------------
     today = date.today()
-    existing = PortfolioSnapshot.objects.filter(user=request.user, date=today).first
+    existing = PortfolioSnapshot.objects.filter(user=request.user, date=today).first()
+
     if not existing:
         PortfolioSnapshot.objects.create(
             user=request.user,
             total_value=total_portfolio_value
         )
+
     snapshots = PortfolioSnapshot.objects.filter(user=request.user).order_by("date")
 
-    dates = [s.date.strftime("%Y-%m-%d") for s in snapshots]
-    values = [float(s.total_value) for s in snapshots]
-    
-    # -- the dictionary --- 
-    holdings_data({
-        "symbol": h.symbol,
-        "shares": h.shares,
-        "current_price": current_price,
-        "market_value": market_value,
-        "avg_cost": avg_cost,
-        "profit_loss": profit_loss,
-        "pl_per_share": pl_per_share,
-        "percent_gain": percent_gain,
-        "perf_dates": dates,
-        "perf_values": values,
-    })
-    
+    # Performance chart data
+    perf_dates = [s.date.strftime("%Y-%m-%d") for s in snapshots]
+    perf_values = [float(s.total_value) for s in snapshots]
+
+    # -----------------------------
+    # 7‑DAY SMA
+    # -----------------------------
+    sma7 = []
+    for i in range(len(perf_values)):
+        if i < 7:
+            sma7.append(None)
+        else:
+            window = perf_values[i-7:i]
+            sma7.append(sum(window) / 7)
+
+    # -----------------------------
+    # 30‑DAY SMA
+    # -----------------------------
+    sma30 = []
+    for i in range(len(perf_values)):
+        if i < 30:
+            sma30.append(None)
+        else:
+            window = perf_values[i-30:i]
+            sma30.append(sum(window) / 30)
+
+    perf_dates_json = json.dumps(perf_dates)
+    perf_values_json = json.dumps(perf_values)
+    sma7_json = json.dumps(sma7)
+    sma30_json = json.dumps(sma30)
 
     # -----------------------------------------
     # 2. STOCK LOOKUP + CHART LOGIC (Step 7A)
     # -----------------------------------------
     price = None
-    # symbol = request.GET.get('symbol') or ''
-    # range_option = request.GET.get('range', '1mo')  # <-- MUST be here
-
-    # --- Python lists  ---
     timestamp = None
     change = None
-    dates = []
+
+    chart_dates = []
     closes = []
     volumes = []
     sma20 = []
@@ -98,8 +122,6 @@ def home(request):
     sma150 = []
     sma200 = []
     volume_ma30 = []
-
-    # -----------------
 
     if symbol:
         stock = yf.Ticker(symbol)
@@ -113,94 +135,38 @@ def home(request):
                 prev_close = data['Close'].iloc[-2]
                 change = price - prev_close
 
-            dates = [d.strftime("%Y-%m-%d") for d in data.index]
+            chart_dates = [d.strftime("%Y-%m-%d") for d in data.index]
             closes = [float(c) for c in data['Close']]
             volumes = [int(v) for v in data['Volume']]
+
             # Volume MA30
             for i in range(len(volumes)):
                 if i < 30:
                     volume_ma30.append(None)
                 else:
                     window = volumes[i-30:i]
-                    volume_ma30.append(sum(window)/ 30)
+                    volume_ma30.append(sum(window) / 30)
 
-            # -----------------------------------------------------
-            #                 -- MOVING AVERAGES -----
-            #------------------------------------------------------
-            # 20-day moving average
+            # Moving averages
             data['SMA20'] = data['Close'].rolling(window=20).mean()
-            #  50-day moving average
             data['SMA50'] = data['Close'].rolling(window=50).mean()
-            # 150-day moving average
             data['SMA150'] = data['Close'].rolling(window=150).mean()
-            # 200-day moving average
             data['SMA200'] = data['Close'].rolling(window=200).mean()
 
-            # - Convert SMA20 to python list
-            for x in data['SMA20']:
-                if x is None:
-                    sma20.append(None)
-                else:
-                    try:
-                        if math.isnan(x):
-                            sma20.append(None)
-                        else:
-                            sma20.append(float(x))
-                    except:
-                        sma20.append(None)
-            # - Convert SMA50 to python list
-            for x in data['SMA50']:
-                if x is None:
-                    sma50.append(None)
-                else:
-                    try:
-                        if math.isnan(x):
-                            sma50.append(None)
-                        else:
-                            sma50.append(float(x))
-                    except:
-                        sma50.append(None)
-            # - Convert SMA150 to python list
-            for x in data['SMA150']:
-                if x is None:
-                    sma150.append(None)
-                else:
-                    try:
-                        if math.isnan(x):
-                            sma150.append(None)
-                        else:
-                            sma150.append(float(x))
-                    except:
-                        sma150.append(None)
-            # - Convert SMA20 to python list
-            for x in data['SMA200']:
-                if x is None:
-                    sma200.append(None)
-                else:
-                    try:
-                        if math.isnan(x):
-                            sma200.append(None)
-                        else:
-                            sma200.append(float(x))
-                    except:
-                        sma200.append(None)
-    # -----------------------------
-    # 3. RENDER EVERYTHING TOGETHER - for console
-    # -----------------------------
-    print("DATES:", dates)
-    print("CLOSES:", closes)
-    print("VOLUMES:", volumes)
-    print("SMA20:", sma20)
-    print("SMA50:", sma50)
-    print("SMA150:", sma150)
-    print("SMA200:", sma200)
-    print("VOLUME_MA30:", volume_ma30)
-    print("LEN VOLUMES:", len(volumes))
-    print("VOLUME_MA30 SAMPLE:", volume_ma30[:40])
+            for col, target in [
+                ('SMA20', sma20),
+                ('SMA50', sma50),
+                ('SMA150', sma150),
+                ('SMA200', sma200),
+            ]:
+                for x in data[col]:
+                    if x is None or (isinstance(x, float) and math.isnan(x)):
+                        target.append(None)
+                    else:
+                        target.append(float(x))
 
-       
-     # Convert Python lists to JSON-safe strings for JavaScript
-    dates = json.dumps(dates)
+    # Convert stock chart lists to JSON
+    chart_dates = json.dumps(chart_dates)
     closes = json.dumps(closes)
     volumes = json.dumps(volumes)
     sma20 = json.dumps(sma20)
@@ -209,35 +175,36 @@ def home(request):
     sma200 = json.dumps(sma200)
     volume_ma30 = json.dumps(volume_ma30)
 
-
+    # -----------------------------
+    # 3. RENDER EVERYTHING
+    # -----------------------------
     return render(request, "home.html", {
-        # Dashboard
         "portfolio": portfolio,
         "holdings": holdings_data,
         "total_value": total_value,
         "total_portfolio_value": total_portfolio_value,
+        "cash_balance": portfolio.cash_balance,
+
+        # Performance chart
+        "perf_dates": perf_dates_json,
+        "perf_values": perf_values_json,
+        "perf_sma7": sma7_json,
+        "perf_sma30": sma30_json,
 
         # Stock lookup + chart
         "price": price,
         "symbol": symbol,
         "timestamp": timestamp,
         "change": change,
-        "dates": dates,
+        "dates": chart_dates,
         "closes": closes,
-
-        # NEW Step 7 variables - Context dictionary
-        "range_option": range_option,
         "volumes": volumes,
         "sma20": sma20,
         "sma50": sma50,
         "sma150": sma150,
         "sma200": sma200,
         "volume_ma30": volume_ma30,
-
-        # Cash Format
-        "cash_balance": portfolio.cash_balance,
-        "total_portfolio_value": total_portfolio_value,
-        "holdings": holdings_data,
+        "range_option": range_option,
     })
 
 @login_required

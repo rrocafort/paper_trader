@@ -2,6 +2,9 @@
 <html>
 <head>
     <title>Paper Trader</title>
+     <!-- Load Chart.js BEFORE any chart code runs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -59,42 +62,59 @@
     <p><strong>Total Portfolio Value:</strong> ${{ total_portfolio_value|floatformat:2|intcomma }}</p>
     <h3>Portfolio Performance</h3>
     <div style="height: 300px;">
-        <canvas id-"portfolioPerformanceChart"></canvas>
+        <canvas id="portfolioPerformanceChart"></canvas>
     </div>
 
     <!-- Chart.js script for canvas -->
     <script>
-        perfCrx = document.getElementById('portfolioPerformanceChart').getContext('2d');
-        const perfChart = new Chart(perfCrx, {
-            type: 'line',
-            data: {
-                labels: {{ perf_dates|safe }},
-                datasets: [{
-                    label: 'Total Portfolio Value',
-                    data: {{ perf_dates|safe}},
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    borderWidth: 2,
-                    tension: 0.2,
-                    pointRadius: 0
-                }]
+    const perfCtx = document.getElementById('portfolioPerformanceChart').getContext('2d');
+
+    const perfChart = new Chart(perfCtx, {
+        type: 'line',
+        data: {
+            labels: {{ perf_dates|safe }},
+            datasets: [{
+                label: 'Total Portfolio Value',
+                data: {{ perf_values|safe }},
+                borderColor: 'rgba(75, 192, 192, 1)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderWidth: 2,
+                tension: 0.2,
+                pointRadius: 0
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        ticks: {
-                            callbacks: function(value) {
-                                return '$' + value.toLocalString();
-                            }
+            {
+                label: "7-DAY SMA",
+                data: {{ perf_sma7|safe }}
+                borderColor: 'orange',
+                borderWidth: 2,
+                tension: 0.2,
+                pointRadius: 0
+            },
+            {
+               label: "30-DAY SMA",
+                data: {{ perf_sma30|safe }}
+                borderColor: 'purple',
+                borderWidth: 2,
+                tension: 0.2,
+                pointRadius: 0 
+            }
+        ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toLocaleString();
                         }
                     }
-
                 }
             }
-        });
-    </script>
+        }
+    });
+</script>
     
     <h3>Holdings</h3>
 
@@ -238,7 +258,7 @@
         <canvas id="priceChart" width="400" height="200"></canvas>
     {% endif %}
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> -->
 
     <script>
     {% if dates %}
