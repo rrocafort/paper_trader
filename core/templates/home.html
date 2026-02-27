@@ -50,44 +50,89 @@
 </head>
 
 <body>
+    {% load humanize %}
+    <!-- ============================ -->
+    <!--   PORTFOLIO DASHBOARD LOGIC  -->
+    <!-- ============================ -->   
+    <h3>Portfolio Summary</h3>
+    <p><strong>Cash Balance:</strong> ${{ cash_balance|floatformat:2|intcomma }}</p>
+    <p><strong>Total Portfolio Value:</strong> ${{ total_portfolio_value|floatformat:2|intcomma }}</p>
+     <h3>Holdings</h3>
 
-    <!-- ========================= -->
-    <!--   PORTFOLIO DASHBOARD     -->
-    <!-- ========================= -->
-    <h2>Your Portfolio</h2>
-
-    <p><strong>Cash Balance:</strong> ${{ portfolio.cash_balance }}</p>
-    <p><strong>Total Portfolio Value:</strong> ${{ total_portfolio_value }}</p>
-
-    <h3>Holdings</h3>
-
-    {% if holdings %}
-    <table>
+{% if holdings %}
+<table class="table table-striped">
+    <thead>
         <tr>
             <th>Symbol</th>
             <th>Shares</th>
+            <th>Purchase Price</th>
             <th>Current Price</th>
+            <th>P/L per Share</th>
+            <th>Total P/L</th>
+            <th>% Gain/Loss</th>
             <th>Market Value</th>
-            <th>Avg Cost</th>
-            <th>P/L</th>
         </tr>
+    </thead>
 
+    <tbody>
         {% for h in holdings %}
         <tr>
             <td>{{ h.symbol }}</td>
             <td>{{ h.shares }}</td>
-            <td>${{ h.current_price }}</td>
-            <td>${{ h.market_value }}</td>
-            <td>${{ h.avg_cost }}</td>
-            <td style="color: {% if h.profit_loss > 0 %}green{% else %}red{% endif %};">
-                ${{ h.profit_loss }}
+            <td>${{ h.avg_cost|floatformat:2|intcomma }}</td>
+            <td>${{ h.current_price|floatformat:2|intcomma }}</td>
+            <td>
+                <span style="color:
+                    {% if h.pl_per_share > 0 %}green
+                    {% elif h.pl_per_share < 0 %}red
+                    {% else %}gray{% endif %};
+                ">
+                    {{ h.pl_per_share|floatformat:2 }}
+                </span>
             </td>
+            <td>
+                <span style="color:
+                    {% if h.profit_loss > 0 %}green
+                    {% elif h.profit_loss < 0 %}red
+                    {% else %}gray{% endif %};
+                ">
+                    ${{ h.profit_loss|floatformat:2|intcomma }}
+                </span>
+            </td>
+            <td>
+                <span style="color:
+                    {% if h.percent_gain > 0 %}green
+                    {% elif h.percent_gain < 0 %}red
+                    {% else %}gray{% endif %};
+                ">
+                    {{ h.percent_gain|floatformat:2 }}%
+                </span>
+            </td>
+            <td>${{ h.market_value|floatformat:2|intcomma }}</td>
         </tr>
         {% endfor %}
-    </table>
-    {% else %}
-    <p>You have no holdings yet.</p>
-    {% endif %}
+    </tbody>
+
+    <tfoot>
+        <tr>
+            <th colspan="5"></th>
+            <th>
+                <span style="color:
+                    {% if total_pl > 0 %}green
+                    {% elif total_pl < 0 %}red
+                    {% else %}gray{% endif %};
+                ">
+                    ${{ total_pl|floatformat:2|intcomma }}
+                </span>
+            </th>
+            <th colspan="2"></th>
+        </tr>
+    </tfoot>
+</table>
+{% else %}
+<p>You have no holdings yet.</p>
+{% endif %}
+   
 
     <!-- ========================= -->
     <!--     STOCK LOOKUP FORM     -->
@@ -132,7 +177,22 @@
         <a href="?symbol={{ symbol }}&range=1y">1Y</a>
     </div>
     {% endif %}
+    <!-- ==========================-->
+    <!--     INDICATOR PANEL       -->
+    <!-- ==========================-->
+    <div id="indicator-panel" style="margin-bottom: 10px;">
+    <button id="indicator-toggle" style="padding: 6px 12px; cursor: pointer;">
+        Indicators ▼
+    </button>
 
+    <div id="indicator-options" style="display: none; margin-top: 10px;">
+        <label><input type="checkbox" class="indicator-checkbox" data-target="SMA20" checked> SMA20</label><br>
+        <label><input type="checkbox" class="indicator-checkbox" data-target="SMA50" checked> SMA50</label><br>
+        <label><input type="checkbox" class="indicator-checkbox" data-target="SMA150" checked> SMA150</label><br>
+        <label><input type="checkbox" class="indicator-checkbox" data-target="SMA200" checked> SMA200</label><br>
+        <label><input type="checkbox" class="indicator-checkbox" data-target="Volume MA30" checked> Volume MA30</label><br>
+    </div>
+</div>
     <!-- ========================= -->
     <!--         CHART AREA        -->
     <!-- ========================= -->
@@ -145,7 +205,22 @@
     <script>
     {% if dates %}
     const ctx = document.getElementById('priceChart').getContext('2d');
+    
+    // Build volume colors based on price movement
+    const closes = {{ closes|safe }};
+    const volumeColors = [];
 
+    for (let i = 0; i < closes.length; i++) {
+        if (i === 0) {
+            volumeColors.push('rgba(128, 128, 128, 0.4)');  // first bar neutral
+        } else if (closes[i] > closes[i - 1]) {
+            volumeColors.push('rgba(0, 200, 0, 0.6)');      // green
+        } else if (closes[i] < closes[i - 1]) {
+            volumeColors.push('rgba(200, 0, 0, 0.6)');      // red
+        } else {
+            volumeColors.push('rgba(128, 128, 128, 0.4)');  // unchanged
+        }
+    }
     const priceChart = new Chart(ctx, {
         data: {
             labels: {{ dates|safe }},
@@ -154,48 +229,158 @@
                     type: 'line',
                     label: '{{ symbol }} Price',
                     data: {{ closes|safe }},
-                    borderColor: 'blue',
-                    backgroundColor: 'rgba(0, 0, 255, 0.1)',
-                    borderWidth: 2,
+                    borderColor: 'rgba(0, 0, 255, 0.6)',
+                    backgroundColor: 'rgba(0, 0, 255, 0.05)',
+                    borderWidth: 1.2,
                     tension: 0.2,
-                    yAxisID: 'y',
+                    pointRadius: 0,
+                    yAxisID: 'y'
                 },
                 {
                     type: 'line',
-                    label: '20-Day SMA',
+                    label: "SMA20",
                     data: {{ sma20|safe }},
-                    borderColor: 'orange',
-                    borderWidth: 2,
+                    borderColor: "orange",
+                    borderWidth: 1.5,
+                    pointRadius: 0,
                     tension: 0.2,
-                    yAxisID: 'y',
+                    yAxisID: 'y'
+                },
+                {
+                    type: 'line',
+                    label: "SMA50",
+                    data: {{ sma50|safe }},
+                    borderColor: "purple",
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    tension: 0.2,
+                    yAxisID: 'y'
+                },
+                {
+                    type: 'line',
+                    label: "SMA150",
+                    data: {{ sma150|safe }},
+                    borderColor: "green",
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    tension: 0.2,
+                    yAxisID: 'y'
+                },
+                {
+                    type: 'line',
+                    label: "SMA200",
+                    data: {{ sma200|safe }},
+                    borderColor: "red",
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    tension: 0.2,
+                    yAxisID: 'y'
                 },
                 {
                     type: 'bar',
                     label: 'Volume',
                     data: {{ volumes|safe }},
-                    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                    backgroundColor: volumeColors,
                     yAxisID: 'y1',
-                }
+                    order: 1  // <-- draw bars first
+                },
+                {
+                    type: 'line',
+                    label: 'Volume MA30',
+                    data: {{ volume_ma30|safe }},
+                    borderColor: 'rgba(65, 105, 255, 0.9)',   // Royal blue line
+                    borderWidth: 3,
+                    pointRadius: 0,
+                    tension: 0.2,
+                    yAxisID: 'y1',
+                    order: 99 // <-- forces line to draw on top
+                },
             ]
         },
         options: {
-            scales: {
-                y: {
-                    type: 'linear',
-                    position: 'left',
-                    title: { display: true, text: 'Price' }
-                },
-                y1: {
-                    type: 'linear',
-                    position: 'right',
-                    title: { display: true, text: 'Volume' },
-                    grid: { drawOnChartArea: false }
+            options: {
+                maintainAspectRatio: false,
+            layout: {
+                padding: { top: 10, bottom: 10 }
+    },
+    scales: {
+        y: {
+            type: 'linear',
+            position: 'left',
+            title: { display: true, text: 'Price' },
+            grid: {
+                color: 'rgba(255, 255, 255, 0.08)'
+            },
+            ticks: {
+                font: { size: 11 },
+                padding: 6
+            }
+        },
+        y1: {
+            type: 'linear',
+            position: 'right',
+            title: { display: true, text: 'Volume' },
+            grid: { drawOnChartArea: false },
+            min: 0,
+            ticks: {
+                font: { size: 11 },
+                padding: 6
+            }
+        }
+    },
+    plugins: {
+        legend: {
+            labels: {
+                font: { size: 11 }
+            }
+        },
+        tooltip: {
+            callbacks: {
+                label: function (ctx) {
+                    const label = ctx.dataset.label || '';
+                    const value = ctx.raw;
+
+                    if (label === 'Volume' || label === 'Volume MA30') {
+                        return `${label}: ${(value / 1_000_000).toFixed(1)}M`;
+                    }
+                    return `${label}: ${Number(value).toFixed(2)}`;
                 }
             }
         }
+    }
+}
+         }
     });
     {% endif %}
     </script>
+
+    <!-- ========================= -->
+    <!--       TOGGLE LOGIC        -->
+    <!-- ========================= -->
+    <script>
+    // Toggle panel open/close
+    document.getElementById("indicator-toggle").onclick = function () {
+        const panel = document.getElementById("indicator-options");
+        panel.style.display = panel.style.display === "none" ? "block" : "none";
+    };
+
+    // Function to toggle datasets
+    function toggleDataset(chart, label, show) {
+        chart.data.datasets.forEach(ds => {
+            if (ds.label === label) {
+                ds.hidden = !show;
+            }
+        });
+        chart.update();
+    }
+
+    // Attach checkbox listeners
+    document.querySelectorAll(".indicator-checkbox").forEach(box => {
+        box.addEventListener("change", function () {
+            toggleDataset(priceChart, this.dataset.target, this.checked);
+        });
+    });
+</script>
 
     <!-- ========================= -->
     <!--       TRADE FORM          -->

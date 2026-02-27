@@ -45,32 +45,45 @@ def home(request):
 
         avg_cost = total_cost / total_shares if total_shares > 0 else Decimal("0")
         profit_loss = market_value - (avg_cost * h.shares)
+        pl_per_share = current_price - avg_cost
+        percent_gain = (pl_per_share / avg_cost * 100) if avg_cost > 0 else Decimal("0")
 
         total_value += market_value
-
-        holdings_data.append({
-            "symbol": h.symbol,
-            "shares": h.shares,
-            "current_price": current_price,
-            "market_value": market_value,
-            "avg_cost": avg_cost,
-            "profit_loss": profit_loss,
-        })
-
     total_portfolio_value = portfolio.cash_balance + total_value
+    
+    # -- the dictionary --- 
+    holdings_data({
+        "symbol": h.symbol,
+        "shares": h.shares,
+        "current_price": current_price,
+        "market_value": market_value,
+        "avg_cost": avg_cost,
+        "profit_loss": profit_loss,
+        "pl_per_share": pl_per_share,
+        "percent_gain": percent_gain,
+    })
+    
 
-    # -----------------------------
+    # -----------------------------------------
     # 2. STOCK LOOKUP + CHART LOGIC (Step 7A)
-    # -----------------------------
+    # -----------------------------------------
     price = None
     # symbol = request.GET.get('symbol') or ''
     # range_option = request.GET.get('range', '1mo')  # <-- MUST be here
+
+    # --- Python lists  ---
     timestamp = None
     change = None
     dates = []
     closes = []
     volumes = []
     sma20 = []
+    sma50 = []
+    sma150 = []
+    sma200 = []
+    volume_ma30 = []
+
+    # -----------------
 
     if symbol:
         stock = yf.Ticker(symbol)
@@ -87,12 +100,27 @@ def home(request):
             dates = [d.strftime("%Y-%m-%d") for d in data.index]
             closes = [float(c) for c in data['Close']]
             volumes = [int(v) for v in data['Volume']]
+            # Volume MA30
+            for i in range(len(volumes)):
+                if i < 30:
+                    volume_ma30.append(None)
+                else:
+                    window = volumes[i-30:i]
+                    volume_ma30.append(sum(window)/ 30)
 
+            # -----------------------------------------------------
+            #                 -- MOVING AVERAGES -----
+            #------------------------------------------------------
             # 20-day moving average
             data['SMA20'] = data['Close'].rolling(window=20).mean()
-            # sma20 = [float(x) if not str(x) == 'nan' else None for x in data['SMA20']]
-            # sma20 = [float(x) if x and not math.isnan(x) else None for x in data['SMA20']]
-            # sma20= []
+            #  50-day moving average
+            data['SMA50'] = data['Close'].rolling(window=50).mean()
+            # 150-day moving average
+            data['SMA150'] = data['Close'].rolling(window=150).mean()
+            # 200-day moving average
+            data['SMA200'] = data['Close'].rolling(window=200).mean()
+
+            # - Convert SMA20 to python list
             for x in data['SMA20']:
                 if x is None:
                     sma20.append(None)
@@ -104,20 +132,68 @@ def home(request):
                             sma20.append(float(x))
                     except:
                         sma20.append(None)
+            # - Convert SMA50 to python list
+            for x in data['SMA50']:
+                if x is None:
+                    sma50.append(None)
+                else:
+                    try:
+                        if math.isnan(x):
+                            sma50.append(None)
+                        else:
+                            sma50.append(float(x))
+                    except:
+                        sma50.append(None)
+            # - Convert SMA150 to python list
+            for x in data['SMA150']:
+                if x is None:
+                    sma150.append(None)
+                else:
+                    try:
+                        if math.isnan(x):
+                            sma150.append(None)
+                        else:
+                            sma150.append(float(x))
+                    except:
+                        sma150.append(None)
+            # - Convert SMA20 to python list
+            for x in data['SMA200']:
+                if x is None:
+                    sma200.append(None)
+                else:
+                    try:
+                        if math.isnan(x):
+                            sma200.append(None)
+                        else:
+                            sma200.append(float(x))
+                    except:
+                        sma200.append(None)
     # -----------------------------
-    # 3. RENDER EVERYTHING TOGETHER
+    # 3. RENDER EVERYTHING TOGETHER - for console
     # -----------------------------
     print("DATES:", dates)
     print("CLOSES:", closes)
     print("VOLUMES:", volumes)
     print("SMA20:", sma20)
+    print("SMA50:", sma50)
+    print("SMA150:", sma150)
+    print("SMA200:", sma200)
+    print("VOLUME_MA30:", volume_ma30)
+    print("LEN VOLUMES:", len(volumes))
+    print("VOLUME_MA30 SAMPLE:", volume_ma30[:40])
+
        
      # Convert Python lists to JSON-safe strings for JavaScript
     dates = json.dumps(dates)
     closes = json.dumps(closes)
     volumes = json.dumps(volumes)
     sma20 = json.dumps(sma20)
-    
+    sma50 = json.dumps(sma50)
+    sma150 = json.dumps(sma150)
+    sma200 = json.dumps(sma200)
+    volume_ma30 = json.dumps(volume_ma30)
+
+
     return render(request, "home.html", {
         # Dashboard
         "portfolio": portfolio,
@@ -133,10 +209,19 @@ def home(request):
         "dates": dates,
         "closes": closes,
 
-        # NEW Step 7 variables
+        # NEW Step 7 variables - Context dictionary
         "range_option": range_option,
         "volumes": volumes,
         "sma20": sma20,
+        "sma50": sma50,
+        "sma150": sma150,
+        "sma200": sma200,
+        "volume_ma30": volume_ma30,
+
+        # Cash Format
+        "cash_balance": portfolio.cash_balance,
+        "total_portfolio_value": total_portfolio_value,
+        "holdings": holdings_data,
     })
 
 @login_required
