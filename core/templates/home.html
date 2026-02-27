@@ -57,7 +57,46 @@
     <h3>Portfolio Summary</h3>
     <p><strong>Cash Balance:</strong> ${{ cash_balance|floatformat:2|intcomma }}</p>
     <p><strong>Total Portfolio Value:</strong> ${{ total_portfolio_value|floatformat:2|intcomma }}</p>
-     <h3>Holdings</h3>
+    <h3>Portfolio Performance</h3>
+    <div style="height: 300px;">
+        <canvas id-"portfolioPerformanceChart"></canvas>
+    </div>
+
+    <!-- Chart.js script for canvas -->
+    <script>
+        perfCrx = document.getElementById('portfolioPerformanceChart').getContext('2d');
+        const perfChart = new Chart(perfCrx, {
+            type: 'line',
+            data: {
+                labels: {{ perf_dates|safe }},
+                datasets: [{
+                    label: 'Total Portfolio Value',
+                    data: {{ perf_dates|safe}},
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderWidth: 2,
+                    tension: 0.2,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        ticks: {
+                            callbacks: function(value) {
+                                return '$' + value.toLocalString();
+                            }
+                        }
+                    }
+
+                }
+            }
+        });
+    </script>
+    
+    <h3>Holdings</h3>
 
 {% if holdings %}
 <table class="table table-striped">
@@ -132,7 +171,6 @@
 {% else %}
 <p>You have no holdings yet.</p>
 {% endif %}
-   
 
     <!-- ========================= -->
     <!--     STOCK LOOKUP FORM     -->
