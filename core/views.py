@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from .models import Portfolio, PortfolioSnapshot, Trade, Holding
 from decimal import Decimal
-from datetime import date
+from datetime import date, timedelta
 import yfinance as yf
 import math, json
 
@@ -79,7 +79,55 @@ def home(request):
     # Performance chart data
     perf_dates = [s.date.strftime("%Y-%m-%d") for s in snapshots]
     perf_values = [float(s.total_value) for s in snapshots]
+    # -----------------------------
+    # DRAWDOWN CALCULATION (Step 8C)
+    # -----------------------------
+    drawdowns = []
+    running_peak = float('-inf')
 
+    for v in perf_values:
+        if v > running_peak:
+            running_peak = v
+        dd = ((v - running_peak) / running_peak) * 100  # negative %
+        drawdowns.append(round(dd))  # whole percentages
+
+    max_drawdown = min(drawdowns) if drawdowns else 0
+
+    # -----------------------------
+    # YTD RETURN
+    # -----------------------------
+    today = date.today()
+    year_start = date(today.year, 1, 1)
+
+    ytd_value_start = None
+    for snap in snapshots:
+        if snap.date >= year_start:
+            ytd_value_start = float(snap.total_value)
+            break
+
+    if ytd_value_start:
+        ytd_return = round(((perf_values[-1] - ytd_value_start) / ytd_value_start) * 100)
+    else:
+        ytd_return = 0
+
+    # -----------------------------
+    # 1-YEAR RETURN (or since inception)
+    # -----------------------------
+    one_year_ago = today - timedelta(days=365)
+
+    one_year_value_start = None
+    for snap in snapshots:
+        if snap.date >= one_year_ago:
+            one_year_value_start = float(snap.total_value)
+            break
+
+    if one_year_value_start:
+        one_year_return = round(((perf_values[-1] - one_year_value_start) / one_year_value_start) * 100)
+    else:
+        one_year_return = 0
+
+    # JSON for Chart.js
+    drawdowns_json = json.dumps(drawdowns)
     # -----------------------------
     # 7‑DAY SMA
     # -----------------------------
@@ -205,6 +253,11 @@ def home(request):
         "sma200": sma200,
         "volume_ma30": volume_ma30,
         "range_option": range_option,
+
+        "drawdowns": drawdowns_json,
+        "max_drawdown": max_drawdown,
+        "ytd_return": ytd_return,
+        "one_year_return": one_year_return,
     })
 
 @login_required

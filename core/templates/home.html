@@ -61,6 +61,21 @@
     <p><strong>Cash Balance:</strong> ${{ cash_balance|floatformat:2|intcomma }}</p>
     <p><strong>Total Portfolio Value:</strong> ${{ total_portfolio_value|floatformat:2|intcomma }}</p>
     
+    <!-- PORTFOLIO ANALYTICS PANEL -->
+    <div style="
+        border: 1px solid #ddd;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 20px 0;
+        background: #fafafa;
+    ">
+        <h4 style="margin-top: 0;">Performance Analytics</h4>
+
+        <p><strong>YTD Return:</strong> {{ ytd_return }}%</p>
+        <p><strong>1‑Year Return:</strong> {{ one_year_return }}%</p>
+        <p><strong>Max Drawdown:</strong> {{ max_drawdown }}%</p>
+    </div>
+     
     <h3>Portfolio Performance</h3>
     <!-- Performance indicator panel -->
     <div id="perf-indicator-panel" style="margin-bottom: 10px; text-align:center;">
@@ -97,7 +112,7 @@
             },
             {
                 label: "7-DAY SMA",
-                data: {{ perf_sma7|safe }}
+                data: {{ perf_sma7|safe }},
                 borderColor: 'orange',
                 borderWidth: 2,
                 tension: 0.2,
@@ -105,7 +120,7 @@
             },
             {
                label: "30-DAY SMA",
-                data: {{ perf_sma30|safe }}
+                data: {{ perf_sma30|safe }},
                 borderColor: 'purple',
                 borderWidth: 2,
                 tension: 0.2,
@@ -127,30 +142,72 @@
             }
         }
     });
-</script>
+    </script>
+    <script>
+        // Toggle panel open/close
+        document.getElementById("perf-indicator-toggle").onclick = function () {
+            const panel = document.getElementById("perf-indicator-options");
+            panel.style.display = panel.style.display === "none" ? "block" : "none";
+        };
+
+        // Toggle datasets
+        function togglePerfDataset(chart, label, show) {
+            chart.data.datasets.forEach(ds => {
+                if (ds.label === label) {
+                    ds.hidden = !show;
+                }
+            });
+            chart.update();
+        }
+
+        // Attach checkbox listeners
+        document.querySelectorAll(".perf-checkbox").forEach(box => {
+            box.addEventListener("change", function () {
+                togglePerfDataset(perfChart, this.dataset.target, this.checked);
+            });
+        });
+    </script>
+<h3>Drawdown</h3>
+
+<div style="height: 200px; margin-top: 10px;">
+    <canvas id="drawdownChart"></canvas>
+</div>
+
 <script>
-    // Toggle panel open/close
-    document.getElementById("perf-indicator-toggle").onclick = function () {
-        const panel = document.getElementById("perf-indicator-options");
-        panel.style.display = panel.style.display === "none" ? "block" : "none";
-    };
+const ddCtx = document.getElementById('drawdownChart').getContext('2d');
 
-    // Toggle datasets
-    function togglePerfDataset(chart, label, show) {
-        chart.data.datasets.forEach(ds => {
-            if (ds.label === label) {
-                ds.hidden = !show;
+const drawdownChart = new Chart(ddCtx, {
+    type: 'line',
+    data: {
+        labels: {{ perf_dates|safe }},
+        datasets: [{
+            label: 'Drawdown (%)',
+            data: {{ drawdowns|safe }},
+            borderColor: 'rgba(220, 53, 69, 1)',      // strong red
+            backgroundColor: 'rgba(220, 53, 69, 0.25)', // light red shade
+            fill: true,
+            borderWidth: 2,
+            tension: 0.25,
+            pointRadius: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                ticks: {
+                    callback: function(value) {
+                        return value + '%';
+                    }
+                }
             }
-        });
-        chart.update();
+        },
+        plugins: {
+            legend: { display: false }
+        }
     }
-
-    // Attach checkbox listeners
-    document.querySelectorAll(".perf-checkbox").forEach(box => {
-        box.addEventListener("change", function () {
-            togglePerfDataset(perfChart, this.dataset.target, this.checked);
-        });
-    });
+});
 </script>
     
     <h3>Holdings</h3>
