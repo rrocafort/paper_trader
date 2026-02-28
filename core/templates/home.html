@@ -167,124 +167,209 @@
             });
         });
     </script>
-<h3>Drawdown</h3>
+    <h3>Drawdown</h3>
 
-<div style="height: 200px; margin-top: 10px;">
-    <canvas id="drawdownChart"></canvas>
-</div>
+    <div style="height: 200px; margin-top: 10px;">
+        <canvas id="drawdownChart"></canvas>
+    </div>
 
-<script>
-const ddCtx = document.getElementById('drawdownChart').getContext('2d');
+    <script>
+    const ddCtx = document.getElementById('drawdownChart').getContext('2d');
 
-const drawdownChart = new Chart(ddCtx, {
-    type: 'line',
-    data: {
-        labels: {{ perf_dates|safe }},
-        datasets: [{
-            label: 'Drawdown (%)',
-            data: {{ drawdowns|safe }},
-            borderColor: 'rgba(220, 53, 69, 1)',      // strong red
-            backgroundColor: 'rgba(220, 53, 69, 0.25)', // light red shade
-            fill: true,
-            borderWidth: 2,
-            tension: 0.25,
-            pointRadius: 0
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-            y: {
-                ticks: {
-                    callback: function(value) {
-                        return value + '%';
+    const drawdownChart = new Chart(ddCtx, {
+        type: 'line',
+        data: {
+            labels: {{ perf_dates|safe }},
+            datasets: [{
+                label: 'Drawdown (%)',
+                data: {{ drawdowns|safe }},
+                borderColor: 'rgba(220, 53, 69, 1)',      // strong red
+                backgroundColor: 'rgba(220, 53, 69, 0.25)', // light red shade
+                fill: true,
+                borderWidth: 2,
+                tension: 0.25,
+                pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+    </script>
+    <h3>Portfolio Allocation</h3>
+
+    <div style="height: 280px; margin-top: 10px;">
+        <canvas id="allocationChart"></canvas>
+    </div>
+
+    <script>
+    const allocCtx = document.getElementById('allocationChart').getContext('2d');
+
+    const pastelColors = [
+        'rgba(255, 179, 186, 0.8)',
+        'rgba(255, 223, 186, 0.8)',
+        'rgba(255, 255, 186, 0.8)',
+        'rgba(186, 255, 201, 0.8)',
+        'rgba(186, 225, 255, 0.8)',
+        'rgba(210, 200, 255, 0.8)',
+        'rgba(255, 200, 240, 0.8)'
+    ];
+
+    new Chart(allocCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {{ allocation_labels|safe }},
+            datasets: [{
+                data: {{ allocation_weights|safe }},
+                backgroundColor: pastelColors,
+                borderColor: '#fff',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        boxWidth: 15,
+                        padding: 15,
+                        font: { size: 12 }
                     }
                 }
             }
-        },
-        plugins: {
-            legend: { display: false }
         }
-    }
-});
-</script>
-    
+    });
+    </script>
+
+    <h3>Trade History</h3>
+
+    <table class="table table-striped" style="margin-top: 10px;">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Symbol</th>
+                <th>Type</th>
+                <th>Shares</th>
+                <th>Price</th>
+                <th>Value</th>
+                <th>P/L (Sell Only)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in trade_rows %}
+            <tr>
+                <td>{{ t.timestamp|date:"Y-m-d H:i" }}</td>
+                <td>{{ t.symbol }}</td>
+                <td>{{ t.trade_type }}</td>
+                <td>{{ t.shares }}</td>
+                <td>${{ t.price }}</td>
+                <td>${{ t.trade_value }}</td>
+                <td>
+                    {% if t.pl %}
+                        {% if t.pl > 0 %}
+                            <span style="color: green;">+${{ t.pl }}</span>
+                        {% else %}
+                            <span style="color: red;">${{ t.pl }}</span>
+                        {% endif %}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
     <h3>Holdings</h3>
 
-{% if holdings %}
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>Symbol</th>
-            <th>Shares</th>
-            <th>Purchase Price</th>
-            <th>Current Price</th>
-            <th>P/L per Share</th>
-            <th>Total P/L</th>
-            <th>% Gain/Loss</th>
-            <th>Market Value</th>
-        </tr>
-    </thead>
+    {% if holdings %}
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Symbol</th>
+                <th>Shares</th>
+                <th>Purchase Price</th>
+                <th>Current Price</th>
+                <th>P/L per Share</th>
+                <th>Total P/L</th>
+                <th>% Gain/Loss</th>
+                <th>Market Value</th>
+            </tr>
+        </thead>
 
-    <tbody>
-        {% for h in holdings %}
-        <tr>
-            <td>{{ h.symbol }}</td>
-            <td>{{ h.shares }}</td>
-            <td>${{ h.avg_cost|floatformat:2|intcomma }}</td>
-            <td>${{ h.current_price|floatformat:2|intcomma }}</td>
-            <td>
-                <span style="color:
-                    {% if h.pl_per_share > 0 %}green
-                    {% elif h.pl_per_share < 0 %}red
-                    {% else %}gray{% endif %};
-                ">
-                    {{ h.pl_per_share|floatformat:2 }}
-                </span>
-            </td>
-            <td>
-                <span style="color:
-                    {% if h.profit_loss > 0 %}green
-                    {% elif h.profit_loss < 0 %}red
-                    {% else %}gray{% endif %};
-                ">
-                    ${{ h.profit_loss|floatformat:2|intcomma }}
-                </span>
-            </td>
-            <td>
-                <span style="color:
-                    {% if h.percent_gain > 0 %}green
-                    {% elif h.percent_gain < 0 %}red
-                    {% else %}gray{% endif %};
-                ">
-                    {{ h.percent_gain|floatformat:2 }}%
-                </span>
-            </td>
-            <td>${{ h.market_value|floatformat:2|intcomma }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
+        <tbody>
+            {% for h in holdings %}
+            <tr>
+                <td>{{ h.symbol }}</td>
+                <td>{{ h.shares }}</td>
+                <td>${{ h.avg_cost|floatformat:2|intcomma }}</td>
+                <td>${{ h.current_price|floatformat:2|intcomma }}</td>
+                <td>
+                    <span style="color:
+                        {% if h.pl_per_share > 0 %}green
+                        {% elif h.pl_per_share < 0 %}red
+                        {% else %}gray{% endif %};
+                    ">
+                        {{ h.pl_per_share|floatformat:2 }}
+                    </span>
+                </td>
+                <td>
+                    <span style="color:
+                        {% if h.profit_loss > 0 %}green
+                        {% elif h.profit_loss < 0 %}red
+                        {% else %}gray{% endif %};
+                    ">
+                        ${{ h.profit_loss|floatformat:2|intcomma }}
+                    </span>
+                </td>
+                <td>
+                    <span style="color:
+                        {% if h.percent_gain > 0 %}green
+                        {% elif h.percent_gain < 0 %}red
+                        {% else %}gray{% endif %};
+                    ">
+                        {{ h.percent_gain|floatformat:2 }}%
+                    </span>
+                </td>
+                <td>${{ h.market_value|floatformat:2|intcomma }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
 
-    <tfoot>
-        <tr>
-            <th colspan="5"></th>
-            <th>
-                <span style="color:
-                    {% if total_pl > 0 %}green
-                    {% elif total_pl < 0 %}red
-                    {% else %}gray{% endif %};
-                ">
-                    ${{ total_pl|floatformat:2|intcomma }}
-                </span>
-            </th>
-            <th colspan="2"></th>
-        </tr>
-    </tfoot>
-</table>
-{% else %}
-<p>You have no holdings yet.</p>
-{% endif %}
+        <tfoot>
+            <tr>
+                <th colspan="5"></th>
+                <th>
+                    <span style="color:
+                        {% if total_pl > 0 %}green
+                        {% elif total_pl < 0 %}red
+                        {% else %}gray{% endif %};
+                    ">
+                        ${{ total_pl|floatformat:2|intcomma }}
+                    </span>
+                </th>
+                <th colspan="2"></th>
+            </tr>
+        </tfoot>
+    </table>
+    {% else %}
+    <p>You have no holdings yet.</p>
+    {% endif %}
 
     <!-- ========================= -->
     <!--     STOCK LOOKUP FORM     -->
@@ -343,8 +428,8 @@ const drawdownChart = new Chart(ddCtx, {
         <label><input type="checkbox" class="indicator-checkbox" data-target="SMA150" checked> SMA150</label><br>
         <label><input type="checkbox" class="indicator-checkbox" data-target="SMA200" checked> SMA200</label><br>
         <label><input type="checkbox" class="indicator-checkbox" data-target="Volume MA30" checked> Volume MA30</label><br>
+        </div>
     </div>
-</div>
     <!-- ========================= -->
     <!--         CHART AREA        -->
     <!-- ========================= -->
@@ -500,7 +585,7 @@ const drawdownChart = new Chart(ddCtx, {
             }
         }
     }
-}
+    }
          }
     });
     {% endif %}

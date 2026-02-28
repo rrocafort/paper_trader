@@ -61,7 +61,61 @@ def home(request):
         })
 
     total_portfolio_value = portfolio.cash_balance + total_value
+    # -----------------------------
+    # PORTFOLIO ALLOCATION (Step 9)
+    # -----------------------------
+    allocation_labels = []
+    allocation_weights = []
 
+    for h in holdings_data:
+        ticker = h["symbol"]
+        value = float(h["market_value"])  # convert Decimal → float
+
+        if total_portfolio_value > 0:
+            weight = (value / float(total_portfolio_value)) * 100
+        else:
+            weight = 0
+
+        allocation_labels.append(ticker)
+        allocation_weights.append(round(weight, 2))  # now a float
+    
+    allocation_labels_json = json.dumps(allocation_labels)
+    allocation_weights_json = json.dumps(allocation_weights)
+
+    # -----------------------------
+    # TRADE HISTORY (Step 10)
+    # -----------------------------
+    # trade_history = Trade.objects.filter(user=request.user).order_by('-timestamp')
+    trade_history = Trade.objects.filter(portfolio=portfolio).order_by('-timestamp')
+
+    trade_rows = []
+    running_cost_basis = 0
+    running_shares = 0
+
+    for t in trade_history:
+        trade_value = float(t.shares) * float(t.price)
+
+        if t.trade_type == "BUY":
+            running_cost_basis = (
+                (running_cost_basis * running_shares) + trade_value
+            ) / (running_shares + float(t.shares)) if running_shares > 0 else float(t.price)
+
+            running_shares += float(t.shares)
+            pl = None
+
+        else:  # SELL
+            pl = round((float(t.price) - running_cost_basis) * float(t.shares), 2)
+            running_shares -= float(t.shares)
+
+        trade_rows.append({
+            "symbol": t.symbol,
+            "trade_type": t.trade_type,
+            "shares": float(t.shares),
+            "price": float(t.price),
+            "trade_value": round(trade_value, 2),
+            "timestamp": t.timestamp,
+            "pl": pl,
+        })
     # -----------------------------
     # 1B. SAVE PORTFOLIO SNAPSHOT
     # -----------------------------
@@ -222,6 +276,7 @@ def home(request):
     sma150 = json.dumps(sma150)
     sma200 = json.dumps(sma200)
     volume_ma30 = json.dumps(volume_ma30)
+    
 
     # -----------------------------
     # 3. RENDER EVERYTHING
@@ -258,6 +313,11 @@ def home(request):
         "max_drawdown": max_drawdown,
         "ytd_return": ytd_return,
         "one_year_return": one_year_return,
+
+        "allocation_labels": allocation_labels_json,
+        "allocation_weights": allocation_weights_json,
+
+        "trade_rows": trade_rows,
     })
 
 @login_required
