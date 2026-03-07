@@ -3,21 +3,32 @@
 {% block content %}
 
 <div class="container">
+    <h2>Paper Trading Simulator</h2>
 
-<h2>Paper Trading Simulator</h2>
+    <form method="POST">
+        {% csrf_token %}
+        <input type="text" name="symbol" placeholder="Enter stock symbol (AAPL)">
+        <button type="submit">Search</button>
+    </form>
 
-<form method="POST">
-    {% csrf_token %}
+    <br>
 
-    <input type="text" name="symbol" placeholder="Enter stock symbol (AAPL)">
-    <button type="submit">Search</button>
+    <canvas id="stockChart"></canvas>
 
-</form>
+    <br><br>
 
-<br>
+    <div class="trade-buttons">
+        <button type="button" class="buy-btn" onclick="openLoginModal()">Buy</button>
+        <button type="button" class="sell-btn" onclick="openLoginModal()">Sell</button>
+        <button type="button" class="submit-btn" onclick="openLoginModal()">Submit Trade</button>
+    </div>
+</div>
 
-<canvas id="stockChart"></canvas>
-
+<div id="loginModal" class="modal-overlay">
+    <div class="modal-box">
+        <p>Please login to place a trade or create an account. This will allow you to keep track of your trades and P/L.</p>
+        <button type="button" onclick="closeLoginModal()">Close</button>
+    </div>
 </div>
 
 {% endblock %}
