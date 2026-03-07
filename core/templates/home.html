@@ -1,7 +1,141 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Paper Trader</title>
+
+    <!-- Load Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            padding-top: 60px; /* space for fixed header */
+            background: #f7f7f7;
+        }
+
+        /* Top strip */
+        #top-strip {
+            width: 100%;
+            height: 50px;
+            background-color: #2c3e50;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 0 20px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+        }
+
+        /* Hamburger icon */
+        #hamburger {
+            font-size: 28px;
+            cursor: pointer;
+            color: white;
+        }
+
+        /* Slide-out login panel */
+        #login-panel {
+            width: 300px;
+            height: 100%;
+            background-color: #ecf0f1;
+            position: fixed;
+            top: 0;
+            right: -300px; /* hidden by default */
+            transition: right 0.3s ease;
+            padding: 20px;
+            z-index: 1500;
+            box-shadow: -2px 0 8px rgba(0,0,0,0.3);
+        }
+
+        .form-input {
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 8px;
+        }
+
+        .login-button {
+            width: 100%;
+            padding: 10px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .login-button:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="top-strip">
+        <div id="hamburger">&#9776;</div>
+    </div>
+
+    <div id="login-panel">
+        <h3>Login</h3>
+
+        <label for="login-username">Username</label>
+        <input type="text" id="login-username" class="form-input">
+
+        <label for="login-password">Password</label>
+        <input type="password" id="login-password" class="form-input">
+
+        <button id="login-submit" class="login-button">Login</button>
+
+        <hr style="margin: 20px 0;">
+
+        <a href="/signup/" style="color: #2980b9;">Create an account →</a>
+    </div>
+
+    <script>
+        const hamburger = document.getElementById("hamburger");
+        const loginPanel = document.getElementById("login-panel");
+        let panelOpen = false;
+
+        hamburger.addEventListener("click", () => {
+            loginPanel.style.right = panelOpen ? "-300px" : "0px";
+            panelOpen = !panelOpen;
+        });
+    </script>
+
+<body>
+     
+   
+        <h3>Login</h3>
+
+        <label>Username</label>
+        <input type="text" id="login-username" style="width: 100%; margin-bottom: 10px;">
+
+        <label>Password</label>
+        <input type="password" id="login-password" style="width: 100%; margin-bottom: 20px;">
+
+        <button id="login-submit" style="
+            width: 100%;
+            padding: 10px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+        ">Login</button>
+
+        <hr style="margin: 20px 0;">
+
+        <a href="/signup/" style="color: #2980b9;">Create an account →</a>
+    </div>
      <!-- Load Chart.js BEFORE any chart code runs -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -50,327 +184,332 @@
             text-align: center;
         }
     </style>
-</head>
-
-<body>
     {% load humanize %}
-    <!-- ============================ -->
+    <!-- ================================= -->
+    <!-- ===LOGGED-IN CONTENT AREA ONLY == -->
+    <!-- ================================= -->
+    {% if user.is.authenticated %} 
+    <!--  ============================ -->
     <!--   PORTFOLIO DASHBOARD LOGIC  -->
     <!-- ============================ -->   
-    <h3>Portfolio Summary</h3>
-    <p><strong>Cash Balance:</strong> ${{ cash_balance|floatformat:2|intcomma }}</p>
-    <p><strong>Total Portfolio Value:</strong> ${{ total_portfolio_value|floatformat:2|intcomma }}</p>
-    
-    <!-- PORTFOLIO ANALYTICS PANEL -->
-    <div style="
-        border: 1px solid #ddd;
-        padding: 15px;
-        border-radius: 8px;
-        margin: 20px 0;
-        background: #fafafa;
-    ">
-        <h4 style="margin-top: 0;">Performance Analytics</h4>
+        <h3>Portfolio Summary</h3>
+        <p><strong>Cash Balance:</strong> ${{ cash_balance|floatformat:2|intcomma }}</p>
+        <p><strong>Total Portfolio Value:</strong> ${{ total_portfolio_value|floatformat:2|intcomma }}</p>
+        
+        <!-- PORTFOLIO ANALYTICS PANEL -->
+        <div style="
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            background: #fafafa;
+        ">
+            <h4 style="margin-top: 0;">Performance Analytics</h4>
 
-        <p><strong>YTD Return:</strong> {{ ytd_return }}%</p>
-        <p><strong>1‑Year Return:</strong> {{ one_year_return }}%</p>
-        <p><strong>Max Drawdown:</strong> {{ max_drawdown }}%</p>
-    </div>
-     
-    <h3>Portfolio Performance</h3>
-    <!-- Performance indicator panel -->
-    <div id="perf-indicator-panel" style="margin-bottom: 10px; text-align:center;">
-        <button id="perf-indicator-toggle" style="padding: 6px 12px; cursor: pointer;">
-            Performance Indicators ▼
-        </button>
-
-        <div id="perf-indicator-options" style="display: none; margin-top: 10px;">
-            <label><input type="checkbox" class="perf-checkbox" data-target="Total Portfolio Value" checked> Total Value</label><br>
-            <label><input type="checkbox" class="perf-checkbox" data-target="7‑Day SMA" checked> SMA7</label><br>
-            <label><input type="checkbox" class="perf-checkbox" data-target="30‑Day SMA" checked> SMA30</label><br>
+            <p><strong>YTD Return:</strong> {{ ytd_return }}%</p>
+            <p><strong>1‑Year Return:</strong> {{ one_year_return }}%</p>
+            <p><strong>Max Drawdown:</strong> {{ max_drawdown }}%</p>
         </div>
-    </div>
-    <div style="height: 300px;">
-        <canvas id="portfolioPerformanceChart"></canvas>
-    </div>
+        
+        <h3>Portfolio Performance</h3>
 
-    <!-- Chart.js script for canvas -->
-    <script>
-    const perfCtx = document.getElementById('portfolioPerformanceChart').getContext('2d');
+        <!-- Performance indicator panel -->
 
-    const perfChart = new Chart(perfCtx, {
-        type: 'line',
-        data: {
-            labels: {{ perf_dates|safe }},
-            datasets: [{
-                label: 'Total Portfolio Value',
-                data: {{ perf_values|safe }},
-                borderColor: 'rgba(75, 192, 192, 1)',
-                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                borderWidth: 2,
-                tension: 0.2,
-                pointRadius: 0
+        <div id="perf-indicator-panel" style="margin-bottom: 10px; text-align:center;">
+            <button id="perf-indicator-toggle" style="padding: 6px 12px; cursor: pointer;">
+                Performance Indicators ▼
+            </button>
+
+            <div id="perf-indicator-options" style="display: none; margin-top: 10px;">
+                <label><input type="checkbox" class="perf-checkbox" data-target="Total Portfolio Value" checked> Total Value</label><br>
+                <label><input type="checkbox" class="perf-checkbox" data-target="7‑Day SMA" checked> SMA7</label><br>
+                <label><input type="checkbox" class="perf-checkbox" data-target="30‑Day SMA" checked> SMA30</label><br>
+            </div>
+        </div>
+        <div style="height: 300px;">
+            <canvas id="portfolioPerformanceChart"></canvas>
+        </div>
+
+        <!-- Chart.js script for canvas -->
+        <script>
+        const perfCtx = document.getElementById('portfolioPerformanceChart').getContext('2d');
+
+        const perfChart = new Chart(perfCtx, {
+            type: 'line',
+            data: {
+                labels: {{ perf_dates|safe }},
+                datasets: [{
+                    label: 'Total Portfolio Value',
+                    data: {{ perf_values|safe }},
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderWidth: 2,
+                    tension: 0.2,
+                    pointRadius: 0
+                },
+                {
+                    label: "7-DAY SMA",
+                    data: {{ perf_sma7|safe }},
+                    borderColor: 'orange',
+                    borderWidth: 2,
+                    tension: 0.2,
+                    pointRadius: 0
+                },
+                {
+                label: "30-DAY SMA",
+                    data: {{ perf_sma30|safe }},
+                    borderColor: 'purple',
+                    borderWidth: 2,
+                    tension: 0.2,
+                    pointRadius: 0 
+                }
+            ]
             },
-            {
-                label: "7-DAY SMA",
-                data: {{ perf_sma7|safe }},
-                borderColor: 'orange',
-                borderWidth: 2,
-                tension: 0.2,
-                pointRadius: 0
-            },
-            {
-               label: "30-DAY SMA",
-                data: {{ perf_sma30|safe }},
-                borderColor: 'purple',
-                borderWidth: 2,
-                tension: 0.2,
-                pointRadius: 0 
-            }
-        ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    ticks: {
-                        callback: function(value) {
-                            return '$' + value.toLocaleString();
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
                         }
                     }
                 }
             }
-        }
-    });
-    </script>
-    <script>
-        // Toggle panel open/close
-        document.getElementById("perf-indicator-toggle").onclick = function () {
-            const panel = document.getElementById("perf-indicator-options");
-            panel.style.display = panel.style.display === "none" ? "block" : "none";
-        };
-
-        // Toggle datasets
-        function togglePerfDataset(chart, label, show) {
-            chart.data.datasets.forEach(ds => {
-                if (ds.label === label) {
-                    ds.hidden = !show;
-                }
-            });
-            chart.update();
-        }
-
-        // Attach checkbox listeners
-        document.querySelectorAll(".perf-checkbox").forEach(box => {
-            box.addEventListener("change", function () {
-                togglePerfDataset(perfChart, this.dataset.target, this.checked);
-            });
         });
-    </script>
-    <h3>Drawdown</h3>
+        </script>
+        <script>
+            // Toggle panel open/close
+            document.getElementById("perf-indicator-toggle").onclick = function () {
+                const panel = document.getElementById("perf-indicator-options");
+                panel.style.display = panel.style.display === "none" ? "block" : "none";
+            };
 
-    <div style="height: 200px; margin-top: 10px;">
-        <canvas id="drawdownChart"></canvas>
-    </div>
+            // Toggle datasets
+            function togglePerfDataset(chart, label, show) {
+                chart.data.datasets.forEach(ds => {
+                    if (ds.label === label) {
+                        ds.hidden = !show;
+                    }
+                });
+                chart.update();
+            }
 
-    <script>
-    const ddCtx = document.getElementById('drawdownChart').getContext('2d');
+            // Attach checkbox listeners
+            document.querySelectorAll(".perf-checkbox").forEach(box => {
+                box.addEventListener("change", function () {
+                    togglePerfDataset(perfChart, this.dataset.target, this.checked);
+                });
+            });
+        </script>
+        <!-- Drawdown Chart-->
+        <h3>Drawdown</h3>
 
-    const drawdownChart = new Chart(ddCtx, {
-        type: 'line',
-        data: {
-            labels: {{ perf_dates|safe }},
-            datasets: [{
-                label: 'Drawdown (%)',
-                data: {{ drawdowns|safe }},
-                borderColor: 'rgba(220, 53, 69, 1)',      // strong red
-                backgroundColor: 'rgba(220, 53, 69, 0.25)', // light red shade
-                fill: true,
-                borderWidth: 2,
-                tension: 0.25,
-                pointRadius: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    ticks: {
-                        callback: function(value) {
-                            return value + '%';
+        <div style="height: 200px; margin-top: 10px;">
+            <canvas id="drawdownChart"></canvas>
+        </div>
+
+        <script>
+        const ddCtx = document.getElementById('drawdownChart').getContext('2d');
+
+        const drawdownChart = new Chart(ddCtx, {
+            type: 'line',
+            data: {
+                labels: {{ perf_dates|safe }},
+                datasets: [{
+                    label: 'Drawdown (%)',
+                    data: {{ drawdowns|safe }},
+                    borderColor: 'rgba(220, 53, 69, 1)',      // strong red
+                    backgroundColor: 'rgba(220, 53, 69, 0.25)', // light red shade
+                    fill: true,
+                    borderWidth: 2,
+                    tension: 0.25,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+        </script>
+        <!-- Portfolio Allocation -->
+        <h3>Portfolio Allocation</h3>
+
+        <div style="height: 280px; margin-top: 10px;">
+            <canvas id="allocationChart"></canvas>
+        </div>
+
+        <script>
+        const allocCtx = document.getElementById('allocationChart').getContext('2d');
+
+        const pastelColors = [
+            'rgba(255, 179, 186, 0.8)',
+            'rgba(255, 223, 186, 0.8)',
+            'rgba(255, 255, 186, 0.8)',
+            'rgba(186, 255, 201, 0.8)',
+            'rgba(186, 225, 255, 0.8)',
+            'rgba(210, 200, 255, 0.8)',
+            'rgba(255, 200, 240, 0.8)'
+        ];
+
+        new Chart(allocCtx, {
+            type: 'doughnut',
+            data: {
+                labels: {{ allocation_labels|safe }},
+                datasets: [{
+                    data: {{ allocation_weights|safe }},
+                    backgroundColor: pastelColors,
+                    borderColor: '#fff',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            boxWidth: 15,
+                            padding: 15,
+                            font: { size: 12 }
                         }
                     }
                 }
-            },
-            plugins: {
-                legend: { display: false }
             }
-        }
-    });
-    </script>
-    <h3>Portfolio Allocation</h3>
+        });
+        </script>
+        <!--  Trade History -->
+        <h3>Trade History</h3>
 
-    <div style="height: 280px; margin-top: 10px;">
-        <canvas id="allocationChart"></canvas>
-    </div>
-
-    <script>
-    const allocCtx = document.getElementById('allocationChart').getContext('2d');
-
-    const pastelColors = [
-        'rgba(255, 179, 186, 0.8)',
-        'rgba(255, 223, 186, 0.8)',
-        'rgba(255, 255, 186, 0.8)',
-        'rgba(186, 255, 201, 0.8)',
-        'rgba(186, 225, 255, 0.8)',
-        'rgba(210, 200, 255, 0.8)',
-        'rgba(255, 200, 240, 0.8)'
-    ];
-
-    new Chart(allocCtx, {
-        type: 'doughnut',
-        data: {
-            labels: {{ allocation_labels|safe }},
-            datasets: [{
-                data: {{ allocation_weights|safe }},
-                backgroundColor: pastelColors,
-                borderColor: '#fff',
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'right',
-                    labels: {
-                        boxWidth: 15,
-                        padding: 15,
-                        font: { size: 12 }
-                    }
-                }
-            }
-        }
-    });
-    </script>
-
-    <h3>Trade History</h3>
-
-    <table class="table table-striped" style="margin-top: 10px;">
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Symbol</th>
-                <th>Type</th>
-                <th>Shares</th>
-                <th>Price</th>
-                <th>Value</th>
-                <th>P/L (Sell Only)</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for t in trade_rows %}
-            <tr>
-                <td>{{ t.timestamp|date:"Y-m-d H:i" }}</td>
-                <td>{{ t.symbol }}</td>
-                <td>{{ t.trade_type }}</td>
-                <td>{{ t.shares }}</td>
-                <td>${{ t.price }}</td>
-                <td>${{ t.trade_value }}</td>
-                <td>
-                    {% if t.pl %}
-                        {% if t.pl > 0 %}
-                            <span style="color: green;">+${{ t.pl }}</span>
+        <table class="table table-striped" style="margin-top: 10px;">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Symbol</th>
+                    <th>Type</th>
+                    <th>Shares</th>
+                    <th>Price</th>
+                    <th>Value</th>
+                    <th>P/L (Sell Only)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in trade_rows %}
+                <tr>
+                    <td>{{ t.timestamp|date:"Y-m-d H:i" }}</td>
+                    <td>{{ t.symbol }}</td>
+                    <td>{{ t.trade_type }}</td>
+                    <td>{{ t.shares }}</td>
+                    <td>${{ t.price }}</td>
+                    <td>${{ t.trade_value }}</td>
+                    <td>
+                        {% if t.pl %}
+                            {% if t.pl > 0 %}
+                                <span style="color: green;">+${{ t.pl }}</span>
+                            {% else %}
+                                <span style="color: red;">${{ t.pl }}</span>
+                            {% endif %}
                         {% else %}
-                            <span style="color: red;">${{ t.pl }}</span>
+                            —
                         {% endif %}
-                    {% else %}
-                        —
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <!-- Holdings -->
+        <h3>Holdings</h3>
 
-    <h3>Holdings</h3>
+        {% if holdings %}
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Shares</th>
+                    <th>Purchase Price</th>
+                    <th>Current Price</th>
+                    <th>P/L per Share</th>
+                    <th>Total P/L</th>
+                    <th>% Gain/Loss</th>
+                    <th>Market Value</th>
+                </tr>
+            </thead>
 
-    {% if holdings %}
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Symbol</th>
-                <th>Shares</th>
-                <th>Purchase Price</th>
-                <th>Current Price</th>
-                <th>P/L per Share</th>
-                <th>Total P/L</th>
-                <th>% Gain/Loss</th>
-                <th>Market Value</th>
-            </tr>
-        </thead>
+            <tbody>
+                {% for h in holdings %}
+                <tr>
+                    <td>{{ h.symbol }}</td>
+                    <td>{{ h.shares }}</td>
+                    <td>${{ h.avg_cost|floatformat:2|intcomma }}</td>
+                    <td>${{ h.current_price|floatformat:2|intcomma }}</td>
+                    <td>
+                        <span style="color:
+                            {% if h.pl_per_share > 0 %}green
+                            {% elif h.pl_per_share < 0 %}red
+                            {% else %}gray{% endif %};
+                        ">
+                            {{ h.pl_per_share|floatformat:2 }}
+                        </span>
+                    </td>
+                    <td>
+                        <span style="color:
+                            {% if h.profit_loss > 0 %}green
+                            {% elif h.profit_loss < 0 %}red
+                            {% else %}gray{% endif %};
+                        ">
+                            ${{ h.profit_loss|floatformat:2|intcomma }}
+                        </span>
+                    </td>
+                    <td>
+                        <span style="color:
+                            {% if h.percent_gain > 0 %}green
+                            {% elif h.percent_gain < 0 %}red
+                            {% else %}gray{% endif %};
+                        ">
+                            {{ h.percent_gain|floatformat:2 }}%
+                        </span>
+                    </td>
+                    <td>${{ h.market_value|floatformat:2|intcomma }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
 
-        <tbody>
-            {% for h in holdings %}
-            <tr>
-                <td>{{ h.symbol }}</td>
-                <td>{{ h.shares }}</td>
-                <td>${{ h.avg_cost|floatformat:2|intcomma }}</td>
-                <td>${{ h.current_price|floatformat:2|intcomma }}</td>
-                <td>
-                    <span style="color:
-                        {% if h.pl_per_share > 0 %}green
-                        {% elif h.pl_per_share < 0 %}red
-                        {% else %}gray{% endif %};
-                    ">
-                        {{ h.pl_per_share|floatformat:2 }}
-                    </span>
-                </td>
-                <td>
-                    <span style="color:
-                        {% if h.profit_loss > 0 %}green
-                        {% elif h.profit_loss < 0 %}red
-                        {% else %}gray{% endif %};
-                    ">
-                        ${{ h.profit_loss|floatformat:2|intcomma }}
-                    </span>
-                </td>
-                <td>
-                    <span style="color:
-                        {% if h.percent_gain > 0 %}green
-                        {% elif h.percent_gain < 0 %}red
-                        {% else %}gray{% endif %};
-                    ">
-                        {{ h.percent_gain|floatformat:2 }}%
-                    </span>
-                </td>
-                <td>${{ h.market_value|floatformat:2|intcomma }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-
-        <tfoot>
-            <tr>
-                <th colspan="5"></th>
-                <th>
-                    <span style="color:
-                        {% if total_pl > 0 %}green
-                        {% elif total_pl < 0 %}red
-                        {% else %}gray{% endif %};
-                    ">
-                        ${{ total_pl|floatformat:2|intcomma }}
-                    </span>
-                </th>
-                <th colspan="2"></th>
-            </tr>
-        </tfoot>
-    </table>
-    {% else %}
-    <p>You have no holdings yet.</p>
+            <tfoot>
+                <tr>
+                    <th colspan="5"></th>
+                    <th>
+                        <span style="color:
+                            {% if total_pl > 0 %}green
+                            {% elif total_pl < 0 %}red
+                            {% else %}gray{% endif %};
+                        ">
+                            ${{ total_pl|floatformat:2|intcomma }}
+                        </span>
+                    </th>
+                    <th colspan="2"></th>
+                </tr>
+            </tfoot>
+        </table>
+        {% else %}
+        <p>You have no holdings yet.</p>
+        {% endif %}
     {% endif %}
-
     <!-- ========================= -->
     <!--     STOCK LOOKUP FORM     -->
     <!-- ========================= -->
@@ -642,6 +781,22 @@
         </form>
     </div>
     {% endif %}
+    <script>
+        const hamburger = document.getElementById("hamburger");
+        const loginPanel = document.getElementById("login-panel");
+
+        let panelOpen = false;
+
+        hamburger.addEventListener("click", () => {
+            if (!panelOpen) {
+                loginPanel.style.right = "0px";
+                panelOpen = true;
+            } else {
+                loginPanel.style.right = "-300px";
+                panelOpen = false;
+            }
+        });
+    </script>
 
 </body>
 </html>
