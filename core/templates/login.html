@@ -1,15 +1,43 @@
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Login</title>
-    </head>
-    <body>
-        <h2>Login</h2>
-        <form method="post">
-            {% csrf_token %}
-            {{ form.as_p }}
-            <button type="submit">Log In</button>
+{% extends "base.html" %}
 
-        </form>
-    </body>
-</html>
+{% block content %}
+<div class="auth-card">
+    <h2>Login</h2>
+
+    {% if form.non_field_errors %}
+        <div class="form-error-box">
+            {% for error in form.non_field_errors %}
+                <div>{{ error }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <form method="post" class="auth-form">
+        {% csrf_token %}
+
+        <div class="form-row">
+            <label for="{{ form.username.id_for_label }}">Username</label>
+            {{ form.username }}
+            {% for error in form.username.errors %}
+                <div class="field-error">{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <div class="form-row">
+            <label for="{{ form.password.id_for_label }}">Password</label>
+            {{ form.password }}
+            {% for error in form.password.errors %}
+                <div class="field-error">{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <button type="submit" class="primary-btn">Log In</button>
+    </form>
+
+    <div class="auth-links">
+        <p><a href="{% url 'home' %}">← Back to Home</a></p>
+        <p><a href="{% url 'signup' %}">Create an account</a></p>
+    </div>
+</div>
+{% endblock %}
+
