@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import date, timedelta
 import json
 import math
@@ -6,12 +6,23 @@ import math
 import yfinance as yf
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
-
-from .models import Portfolio, PortfolioSnapshot, Trade, Holding
-
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 
+from .models import Portfolio, PortfolioSnapshot, Trade, Holding
+
+
+TWOPLACES = Decimal("0.01")
+ZERO = Decimal("0")
+
+
+def q2(value):
+    """
+    Round Decimal values to 2 decimal places for display.
+    """
+    if not isinstance(value, Decimal):
+        value = Decimal(str(value))
+    return value.quantize(TWOPLACES, rounding=ROUND_HALF_UP)
 
 
 def safe_float_or_none(value):
@@ -26,18 +37,131 @@ def safe_float_or_none(value):
         return None
 
 
+def build_position_from_trades(trades):
+    """
+    Average-cost accounting for a single symbol.
+    Trades MUST be in chronological order: oldest -> newest.
+
+    Returns:
+        {
+            "shares": Decimal,
+            "total_cost": Decimal,
+            "avg_cost": Decimal,
+            "realized_pl": Decimal,
+        }
+    """
+    total_shares = ZERO
+    total_cost = ZERO
+    realized_pl = ZERO
+
+    for t in trades:
+        shares = Decimal(str(t.shares))
+        price = Decimal(str(t.price))
+
+        if t.trade_type == "BUY":
+            total_cost += shares * price
+            total_shares += shares
+
+        elif t.trade_type == "SELL":
+            if total_shares <= 0:
+                raise ValueError(
+                    f"Cannot sell shares for {t.symbol} without an open position."
+                )
+
+            if shares > total_shares:
+                raise ValueError(
+                    f"Sell trade exceeds open shares for {t.symbol}."
+                )
+
+            avg_cost_before_sale = total_cost / total_shares
+            realized_pl += (price - avg_cost_before_sale) * shares
+
+            # Reduce cost by COST BASIS, not by sale proceeds
+            total_cost -= avg_cost_before_sale * shares
+            total_shares -= shares
+
+            if total_shares == 0:
+                total_cost = ZERO
+
+    avg_cost = (total_cost / total_shares) if total_shares > 0 else ZERO
+
+    return {
+        "shares": total_shares,
+        "total_cost": total_cost,
+        "avg_cost": avg_cost,
+        "realized_pl": realized_pl,
+    }
+
+
+def build_trade_rows_with_realized_pl(trades):
+    """
+    Build trade history rows with symbol-aware realized P&L.
+    Trades MUST be in chronological order: oldest -> newest.
+    Returns rows in reverse chronological order for display.
+    """
+    state = {}
+    rows = []
+
+    for t in trades:
+        symbol = t.symbol
+        shares = Decimal(str(t.shares))
+        price = Decimal(str(t.price))
+        trade_value = shares * price
+
+        if symbol not in state:
+            state[symbol] = {
+                "shares": ZERO,
+                "cost": ZERO,
+            }
+
+        running_shares = state[symbol]["shares"]
+        running_cost = state[symbol]["cost"]
+
+        if t.trade_type == "BUY":
+            running_cost += shares * price
+            running_shares += shares
+            pl = None
+
+        else:  # SELL
+            if running_shares <= 0 or shares > running_shares:
+                pl = None
+            else:
+                avg_cost_before_sale = running_cost / running_shares
+                pl = q2((price - avg_cost_before_sale) * shares)
+
+                running_cost -= avg_cost_before_sale * shares
+                running_shares -= shares
+
+                if running_shares == 0:
+                    running_cost = ZERO
+
+        state[symbol]["shares"] = running_shares
+        state[symbol]["cost"] = running_cost
+
+        rows.append({
+            "symbol": symbol,
+            "trade_type": t.trade_type,
+            "shares": float(shares),
+            "price": float(q2(price)),
+            "trade_value": float(q2(trade_value)),
+            "timestamp": t.timestamp,
+            "pl": float(pl) if pl is not None else None,
+        })
+
+    rows.reverse()
+    return rows
+
+
 def home(request):
-    symbol = (request.GET.get("symbol") or "").upper().strip()
+    symbol = (request.GET.get("symbol") or "AAPL").upper().strip()
     range_option = request.GET.get("range") or "1y"
 
-    # -----------------------------
-    # DEFAULT VALUES
-    # -----------------------------
+    # Default values
     portfolio = None
     holdings_data = []
-    total_value = Decimal("0")
-    total_portfolio_value = Decimal("0")
-    cash_balance = Decimal("0")
+    total_value = ZERO
+    total_portfolio_value = ZERO
+    cash_balance = ZERO
     trade_rows = []
 
     allocation_labels_json = json.dumps([])
@@ -58,7 +182,6 @@ def home(request):
 
     chart_dates = []
     closes = []
-
     sma20 = []
     sma50 = []
     sma150 = []
@@ -81,36 +204,32 @@ def home(request):
                 continue
 
             current_price = Decimal(str(data["Close"].iloc[-1]))
-            market_value = current_price * h.shares
+            market_value = current_price * Decimal(str(h.shares))
 
-            trades = Trade.objects.filter(portfolio=portfolio, symbol=h.symbol)
-            total_shares = Decimal("0")
-            total_cost = Decimal("0")
+            trades = Trade.objects.filter(
+                portfolio=portfolio,
+                symbol=h.symbol
+            ).order_by("timestamp", "id")
 
-            for t in trades:
-                if t.trade_type == "BUY":
-                    total_shares += t.shares
-                    total_cost += t.shares * t.price
-                elif t.trade_type == "SELL":
-                    total_shares -= t.shares
-                    total_cost -= t.shares * t.price
+            position = build_position_from_trades(trades)
+            avg_cost = position["avg_cost"]
 
-            avg_cost = total_cost / total_shares if total_shares > 0 else Decimal("0")
-            profit_loss = market_value - (avg_cost * h.shares)
+            cost_basis_value = avg_cost * Decimal(str(h.shares))
+            profit_loss = market_value - cost_basis_value
             pl_per_share = current_price - avg_cost
-            percent_gain = (pl_per_share / avg_cost * 100) if avg_cost > 0 else Decimal("0")
+            percent_gain = (pl_per_share / avg_cost * Decimal("100")) if avg_cost > 0 else ZERO
 
             total_value += market_value
 
             holdings_data.append({
                 "symbol": h.symbol,
                 "shares": h.shares,
-                "current_price": current_price,
-                "market_value": market_value,
-                "avg_cost": avg_cost,
-                "profit_loss": profit_loss,
-                "pl_per_share": pl_per_share,
-                "percent_gain": percent_gain,
+                "current_price": q2(current_price),
+                "market_value": q2(market_value),
+                "avg_cost": q2(avg_cost),
+                "profit_loss": q2(profit_loss),
+                "pl_per_share": q2(pl_per_share),
+                "percent_gain": q2(percent_gain),
             })
 
         cash_balance = portfolio.cash_balance
@@ -134,37 +253,9 @@ def home(request):
         allocation_labels_json = json.dumps(allocation_labels)
         allocation_weights_json = json.dumps(allocation_weights)
 
-        trade_history = Trade.objects.filter(portfolio=portfolio).order_by("-timestamp")
-
-        running_cost_basis = 0.0
-        running_shares = 0.0
-
-        for t in trade_history:
-            trade_value = float(t.shares) * float(t.price)
-
-            if t.trade_type == "BUY":
-                if running_shares > 0:
-                    running_cost_basis = (
-                        (running_cost_basis * running_shares) + trade_value
-                    ) / (running_shares + float(t.shares))
-                else:
-                    running_cost_basis = float(t.price)
-
-                running_shares += float(t.shares)
-                pl = None
-            else:
-                pl = round((float(t.price) - running_cost_basis) * float(t.shares), 2)
-                running_shares -= float(t.shares)
-
-            trade_rows.append({
-                "symbol": t.symbol,
-                "trade_type": t.trade_type,
-                "shares": float(t.shares),
-                "price": float(t.price),
-                "trade_value": round(trade_value, 2),
-                "timestamp": t.timestamp,
-                "pl": pl,
-            })
+        # IMPORTANT: chronological order for cost basis / realized P&L
+        trade_history = Trade.objects.filter(portfolio=portfolio).order_by("timestamp", "id")
+        trade_rows = build_trade_rows_with_realized_pl(trade_history)
 
         today = date.today()
         existing = PortfolioSnapshot.objects.filter(user=request.user, date=today).first()
@@ -267,11 +358,11 @@ def home(request):
 
                 for i in range(len(close_list)):
                     if i == 0:
-                        volume_colors.append("rgba(120,120,120,0.35)")
+                        volume_colors.append("rgba(148, 163, 184, 0.18)")
                     elif close_list[i] >= close_list[i - 1]:
-                        volume_colors.append("rgba(46, 204, 113, 0.45)")
+                        volume_colors.append("rgba(34, 197, 94, 0.18)")
                     else:
-                        volume_colors.append("rgba(231, 76, 60, 0.45)")
+                        volume_colors.append("rgba(239, 68, 68, 0.18)")
 
                 sma20 = [safe_float_or_none(x) for x in data["SMA20"]]
                 sma50 = [safe_float_or_none(x) for x in data["SMA50"]]
@@ -339,7 +430,6 @@ def signup(request):
         form = UserCreationForm()
 
     return render(request, "signup.html", {"form": form})
-
 
 
 @login_required
@@ -426,4 +516,6 @@ def trade(request):
         price=price,
         trade_type=trade_type
     )
-    return redirect("home")
+
+    range_option = request.POST.get("range_option", "1y")
+    return redirect(f"/?symbol={symbol}&range={range_option}")    
