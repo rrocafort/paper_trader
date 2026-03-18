@@ -40,6 +40,53 @@
             </div>
         </div>
     {% endif %}
+
+    {% if user.is_authenticated %}
+        <div class="holdings-section">
+            <h2>Your Holdings</h2>
+
+            {% if holdings %}
+                <div class="table-responsive">
+                    <table class="holdings-table">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Shares</th>
+                                <th>Avg Cost</th>
+                                <th>Current Price</th>
+                                <th>Market Value</th>
+                                <th>P/L</th>
+                                <th>% Gain</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for holding in holdings %}
+                                <tr>
+                                    <td class="symbol-cell">{{ holding.symbol }}</td>
+                                    <td>{{ holding.shares_display }}</td>
+                                    <td>{{ holding.avg_cost_display }}</td>
+                                    <td>{{ holding.current_price_display }}</td>
+                                    <td>{{ holding.market_value_display }}</td>
+
+                                    <td class="{% if holding.profit_loss > 0 %}positive{% elif holding.profit_loss < 0 %}negative{% else %}neutral{% endif %}">
+                                        {{ holding.profit_loss_display }}
+                                    </td>
+
+                                    <td class="{% if holding.percent_gain > 0 %}positive{% elif holding.percent_gain < 0 %}negative{% else %}neutral{% endif %}">
+                                        {{ holding.percent_gain_display }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty-table-state">
+                    <p>No holdings yet. Buy your first stock to build your portfolio.</p>
+                </div>
+            {% endif %}
+        </div>
+    {% endif %}    
     
     <form method="GET" action="{% url 'home' %}" class="search-form">
         <input type="text" name="symbol" value="{{ symbol }}" placeholder="Enter stock symbol">

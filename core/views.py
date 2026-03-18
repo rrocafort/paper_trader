@@ -276,11 +276,16 @@ def home(request):
                 "avg_cost_display": fmt_money(avg_cost),
                 "profit_loss_display": fmt_money(profit_loss),
                 "pl_per_share_display": fmt_money(pl_per_share),
-                
-            })
+                "percent_gain_display": f"{q2(percent_gain):,.2f}%",           
+                })
 
         cash_balance = portfolio.cash_balance
         total_portfolio_value = cash_balance + total_value
+
+        cash_balance_display = fmt_money(cash_balance)
+        holdings_value_display = fmt_money(total_value)
+        total_portfolio_value_display = fmt_money(total_portfolio_value)
+        positions_count = len(holdings_data)
 
         allocation_labels = []
         allocation_weights = []
