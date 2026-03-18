@@ -348,6 +348,14 @@
 
         .trade-section {
             flex: 1;
+            margin-top: 50px;
+        }
+        .login-required-message {
+            background: #ffffff;
+            padding: 16px 18px;
+            border: 1px solid #ffffff;
+            color: #475569;
+            font-weight: 500;
         }
 
         .chart-container {
@@ -424,6 +432,125 @@
             font-weight: 500;
         }
 
+        #message-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .toast-message {
+            min-width: 320px;
+            max-width: 500px;
+            padding: 14px 18px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            animation: fadeSlideIn 0.3s ease;
+        }
+
+        /* Success */
+        .toast-message.success {
+            background-color: #ecfdf5;
+            border: 1px solid #10b981;
+            color: #065f46;
+        }
+
+        /* Error */
+        .toast-message.error {
+            background-color: #fef2f2;
+            border: 1px solid #ef4444;
+            color: #991b1b;
+        }
+
+        /* Close button */
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-left: 12px;
+        }
+
+        /* Animation */
+        @keyframes fadeSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .trade-message {
+            margin: 16px 0;
+            padding: 14px 16px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .success-message {
+            background-color: #ecfdf5;
+            border: 1px solid #10b981;
+            color: #065f46;
+        }
+
+        .error-message {
+            backgroundColor: #ecfdf5;
+            border: 1px solid #10b981;
+            color: #991b1b;
+        }
+
+        .search-stock-name {
+            display: inline-block;
+            margin-left: 12px;
+            font-weight: 600;
+            color: #334155;
+            vertical-align: middle;
+        }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+            margin: 12px 0 16px 0;
+        }
+
+        .summary-card {
+            background: white;
+            border-radius: 10px;
+            padding: 10px 14px;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+            border: 1px solid #e2e8f0;
+        }
+
+        .summary-label {
+            margin: 0 0 4px 0;
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .summary-card h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
     </style>
 </head>
 
@@ -454,10 +581,11 @@
             <div class="signup-link">
                 <a href="{% url 'signup' %}">Create an account</a>
             </div>
-
+<!-- Remove Bak to home from drawer  
             <div class="signup-link">
                 <a href="{% url 'home' %}">Back to home</a>
-            </div>
+            </div>  -->
+            
         </div>
     {% endif %}
     {% block content %}

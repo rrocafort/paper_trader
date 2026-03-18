@@ -7,7 +7,9 @@ import yfinance as yf
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
 from django.contrib.auth.forms import UserCreationForm
+
 from django.contrib.auth import login
+from django.contrib import messages
 
 from .models import Portfolio, PortfolioSnapshot, Trade, Holding
 
@@ -35,6 +37,26 @@ def safe_float_or_none(value):
         return round(number, 2)
     except (TypeError, ValueError):
         return None
+    
+
+def fmt_money(value):
+    """
+    Format a number as U.S. currency with commas and 2 decimals.
+    Example: $25,000.00
+    """
+    if not isinstance(value, Decimal):
+        value = Decimal(str(value))
+    return f"${value:,.2f}"
+
+
+def fmt_shares(value):
+    """
+    Format share quantity with commas and 2 decimals.
+    Example: 1,250.50
+    """
+    if not isinstance(value, Decimal):
+        value = Decimal(str(value))
+    return f"{value:,.2f}"
 
 
 def build_position_from_trades(trades):
@@ -141,11 +163,19 @@ def build_trade_rows_with_realized_pl(trades):
         rows.append({
             "symbol": symbol,
             "trade_type": t.trade_type,
-            "shares": float(shares),
-            "price": float(q2(price)),
-            "trade_value": float(q2(trade_value)),
+
+            # RAW
+            "shares": shares,
+            "price": q2(price),
+            "trade_value": q2(trade_value),
             "timestamp": t.timestamp,
-            "pl": float(pl) if pl is not None else None,
+            "pl": q2(pl) if pl is not None else None,
+
+            # DISPLAY
+            "shares_display": fmt_shares(shares),
+            "price_display": fmt_money(price),
+            "trade_value_display": fmt_money(trade_value),
+            "pl_display": fmt_money(pl) if pl is not None else None,
         })
 
     rows.reverse()
@@ -164,6 +194,11 @@ def home(request):
     cash_balance = ZERO
     trade_rows = []
 
+    cash_balance_display = fmt_money(ZERO)
+    holdings_value_display = fmt_money(ZERO)
+    total_portfolio_value_display = fmt_money(ZERO)
+    positions_count = 0
+
     allocation_labels_json = json.dumps([])
     allocation_weights_json = json.dumps([])
 
@@ -179,6 +214,7 @@ def home(request):
     price = None
     timestamp = None
     change = None
+    stock_name = None
 
     chart_dates = []
     closes = []
@@ -199,7 +235,7 @@ def home(request):
         for h in holdings:
             stock = yf.Ticker(h.symbol)
             data = stock.history(period="1d")
-
+            
             if data.empty:
                 continue
 
@@ -223,6 +259,8 @@ def home(request):
 
             holdings_data.append({
                 "symbol": h.symbol,
+
+                # RAW / NUMERIC (for logic)
                 "shares": h.shares,
                 "current_price": q2(current_price),
                 "market_value": q2(market_value),
@@ -230,6 +268,15 @@ def home(request):
                 "profit_loss": q2(profit_loss),
                 "pl_per_share": q2(pl_per_share),
                 "percent_gain": q2(percent_gain),
+
+                # DISPLAY (for UI)
+                "shares_display": fmt_shares(h.shares),
+                "current_price_display": fmt_money(current_price),
+                "market_value_display": fmt_money(market_value),
+                "avg_cost_display": fmt_money(avg_cost),
+                "profit_loss_display": fmt_money(profit_loss),
+                "pl_per_share_display": fmt_money(pl_per_share),
+                
             })
 
         cash_balance = portfolio.cash_balance
@@ -335,6 +382,13 @@ def home(request):
     if symbol:
         try:
             stock = yf.Ticker(symbol)
+
+            try:
+                info = stock.info
+                stock_name = info.get("longName") or info.get("shortName") or symbol
+            except Exception:
+                stock_name = symbol
+
             data = stock.history(period=range_option)
 
             if not data.empty:
@@ -369,10 +423,15 @@ def home(request):
                 sma150 = [safe_float_or_none(x) for x in data["SMA150"]]
                 sma200 = [safe_float_or_none(x) for x in data["SMA200"]]
 
+            else:
+                stock_name = None
+
         except Exception:
             price = None
             timestamp = None
             change = None
+            stock_name = None
+
             chart_dates = []
             closes = []
             sma20 = []
@@ -381,13 +440,19 @@ def home(request):
             sma200 = []
             volumes = []
             volume_colors = []
+            
 
     return render(request, "home.html", {
-        "portfolio": portfolio,
+         "portfolio": portfolio,
         "holdings": holdings_data,
         "total_value": total_value,
         "total_portfolio_value": total_portfolio_value,
         "cash_balance": cash_balance,
+
+        "cash_balance_display": cash_balance_display,
+        "holdings_value_display": holdings_value_display,
+        "total_portfolio_value_display": total_portfolio_value_display,
+        "positions_count": positions_count,
 
         "trade_rows": trade_rows,
 
@@ -416,6 +481,8 @@ def home(request):
         "volumes": json.dumps(volumes),
         "volume_colors": json.dumps(volume_colors),
         "range_option": range_option,
+
+        "stock_name": stock_name,      
     })
 
 
@@ -431,7 +498,6 @@ def signup(request):
 
     return render(request, "signup.html", {"form": form})
 
-
 @login_required
 def trade(request):
     if request.method != "POST":
@@ -440,53 +506,54 @@ def trade(request):
     symbol = (request.POST.get("symbol") or "").upper().strip()
     shares_raw = request.POST.get("shares")
     trade_type = request.POST.get("trade_type")
+    range_option = request.POST.get("range_option", "1y")
+
+    redirect_url = f"/?symbol={symbol}&range={range_option}"
 
     if not symbol or not shares_raw or trade_type not in ["BUY", "SELL"]:
-        return render(request, "trade_error.html", {
-            "message": "Invalid trade request."
-        })
+        messages.error(request, "Invalid trade request.")
+        return redirect(redirect_url)
 
     try:
         shares = Decimal(shares_raw)
     except Exception:
-        return render(request, "trade_error.html", {
-            "message": "Invalid number of shares."
-        })
+        messages.error(request, "Invalid number of shares.")
+        return redirect(redirect_url)
 
     if shares <= 0:
-        return render(request, "trade_error.html", {
-            "message": "Shares must be greater than zero."
-        })
+        messages.error(request, "Shares must be greater than zero.")
+        return redirect(redirect_url)
 
-    portfolio, created = Portfolio.objects.get_or_create(user=request.user)
+    portfolio, _ = Portfolio.objects.get_or_create(user=request.user)
 
     stock = yf.Ticker(symbol)
     data = stock.history(period="1d")
 
     if data.empty:
-        return render(request, "trade_error.html", {
-            "message": "Could not retrieve a valid stock price for that symbol."
-        })
+        messages.error(request, "Could not retrieve a valid stock price for that symbol.")
+        return redirect(redirect_url)
 
     price = Decimal(str(data["Close"].iloc[-1]))
+    trade_value = (price * shares).quantize(Decimal("0.01"))
 
     if trade_type == "BUY":
-        cost = price * shares
+        cost = trade_value
 
         if portfolio.cash_balance < cost:
-            return render(request, "trade_error.html", {
-                "message": "Not enough cash to complete this trade."
-            })
+            messages.error(request, "Not enough cash to complete this trade.")
+            return redirect(redirect_url)
 
         portfolio.cash_balance -= cost
 
-        holding, created = Holding.objects.get_or_create(
+        holding, _ = Holding.objects.get_or_create(
             portfolio=portfolio,
             symbol=symbol,
             defaults={"shares": Decimal("0")}
         )
         holding.shares += shares
         holding.save()
+
+        action_word = "Bought"
 
     elif trade_type == "SELL":
         holding = Holding.objects.filter(
@@ -495,17 +562,18 @@ def trade(request):
         ).first()
 
         if not holding or holding.shares < shares:
-            return render(request, "trade_error.html", {
-                "message": "You do not have enough shares to sell."
-            })
+            messages.error(request, "You do not have enough shares to sell.")
+            return redirect(redirect_url)
 
-        portfolio.cash_balance += price * shares
+        portfolio.cash_balance += trade_value
         holding.shares -= shares
 
         if holding.shares == 0:
             holding.delete()
         else:
             holding.save()
+
+        action_word = "Sold"
 
     portfolio.save()
 
@@ -517,5 +585,11 @@ def trade(request):
         trade_type=trade_type
     )
 
-    range_option = request.POST.get("range_option", "1y")
-    return redirect(f"/?symbol={symbol}&range={range_option}")    
+    messages.success(
+        request,
+        f"{action_word} {fmt_shares(shares)} shares of {symbol} at "
+        f"{fmt_money(price)} for {fmt_money(trade_value)}. "
+        f"Cash balance: {fmt_money(portfolio.cash_balance)}."
+    )
+
+    return redirect(redirect_url)

@@ -6,6 +6,41 @@
 
     <h1>Paper Trading Simulator</h1>
 
+    {% if messages %}
+        <div id="message-container">
+            {% for message in messages %}
+                <div class="toast-message {{ message.tags }}">
+                    <span>{{ message }}</span>
+                    <button class="close-btn" onclick="this.parentElement.remove()">×</button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {% if user.is_authenticated %}
+        <div class="summary-cards">
+            <div class="summary-card">
+                <p class="summary-label">Cash Balance</p>
+                <h3>{{ cash_balance_display }}</h3>
+            </div>
+
+            <div class="summary-card">
+                <p class="summary-label">Holdings Value</p>
+                <h3>{{ holdings_value_display }}</h3>
+            </div>
+
+            <div class="summary-card">
+                <p class="summary-label">Total Portfolio Value</p>
+                <h3>{{ total_portfolio_value_display }}</h3>
+            </div>
+
+            <div class="summary-card">
+                <p class="summary-label">Number of Positions</p>
+                <h3>{{ positions_count }}</h3>
+            </div>
+        </div>
+    {% endif %}
+    
     <form method="GET" action="{% url 'home' %}" class="search-form">
         <input type="text" name="symbol" value="{{ symbol }}" placeholder="Enter stock symbol">
         <button type="submit">Search</button>
@@ -14,7 +49,14 @@
     {% if symbol and price %}
 
         <div class="stock-header">
-            <h2>{{ symbol }} Last Price: ${{ price|floatformat:2 }}</h2>
+            <h2>
+                {{ symbol }}
+                {% if stock_name and stock_name != symbol %}
+                    — {{ stock_name }}
+                {% endif %}
+            </h2>
+
+            <p>Last Price: ${{ price|floatformat:2 }}</p>
 
             {% if change is not None %}
                 <p>Daily Change: {{ change|floatformat:2 }}</p>
@@ -86,7 +128,7 @@
                             >
 
                             {% if price %}
-                                <p id="tradeEstimate">Estimated transaction value: -</p>
+                                <p id="tradeEstimate">Estimated transaction value: —</p>
                             {% endif %}
 
                             <div class="trade-buttons">
@@ -100,7 +142,6 @@
 
                         <div class="login-required-message">
                             <p>You must be logged in to trade.</p>
-                            <button type="button" onclick="openLoginModal()">Submit Trade</button>
                         </div>
 
                     {% endif %}
@@ -118,7 +159,6 @@
     {% endif %}
 
 </div>
-
 
 <script>
 
@@ -328,8 +368,15 @@ if (sharesInput && tradeEstimate && currentPrice) {
 
 }
 
+    setTimeout(() => {
+        const container = document.getElementById("message-container");
+        if (container) {
+            container.style.transition = "opacity 0.5s ease";
+            container.style.opacity = "0";
+            setTimeout(() => container.remove(), 700);
+        }
+    }, 5000);
 
 </script>
-
 
 {% endblock %}
