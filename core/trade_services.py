@@ -57,11 +57,19 @@ def execute_trade(*, user, symbol, shares, trade_type):
             symbol=symbol,
         ).first()
 
-        if not holding or holding.shares < shares:
+        if not holding:
             return {
                 "ok": False,
-                "message": "You do not have enough shares to sell.",
+                "message": f"You do not own any shares of {symbol} to sell.",
             }
+
+        if holding.shares < shares:
+            return {
+                "ok": False,
+                "message": (
+                    f"You can only sell up to {fmt_shares(holding.shares)} shares of {symbol}."
+                ),
+            }       
 
         portfolio.cash_balance += trade_value
         holding.shares -= shares

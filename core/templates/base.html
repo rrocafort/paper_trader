@@ -567,7 +567,11 @@
 
         .table-responsive {
             width: 100%;
+            max-height: 320px;
             overflow-x: auto;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
         }
 
         .holdings-table {
@@ -581,6 +585,10 @@
         }
 
         .holdings-table th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background-color: #f8fafc;
             text-align: left;
             padding: 14px 16px;
             font-size: 0.9rem;
@@ -595,7 +603,7 @@
             color: #0f172a;
             white-space: nowrap;
         }
-
+        
         .holdings-table tbody tr:hover {
             background-color: #f8fafc;
         }

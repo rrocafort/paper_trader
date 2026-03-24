@@ -178,9 +178,10 @@
                                 <p id="tradeEstimate">Estimated transaction value: —</p>
                             {% endif %}
 
+                            
                             <div class="trade-buttons">
-                                <button type="submit" name="trade_type" value="BUY" class="buy-btn">Buy</button>
-                                <button type="submit" name="trade_type" value="SELL" class="sell-btn">Sell</button>
+                                <button type="submit" name="trade_type" value="BUY" class="buy-btn" data-original-text="Buy">Buy</button>
+                                <button type="submit" name="trade_type" value="SELL" class="sell-btn" data-original-text="Sell">Sell</button>
                             </div>
 
                         </form>
@@ -423,6 +424,39 @@ if (sharesInput && tradeEstimate && currentPrice) {
             setTimeout(() => container.remove(), 700);
         }
     }, 5000);
+
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const tradeForm = document.getElementById("tradeForm");
+
+        if (!tradeForm) return;
+
+        const submitButtons = tradeForm.querySelectorAll('button[type="submit"]');
+        let isSubmitting = false;
+
+        tradeForm.addEventListener("submit", function (event) {
+            if (isSubmitting) {
+                event.preventDefault();
+                return;
+            }
+
+            isSubmitting = true;
+
+            const clickedButton = event.submitter;
+
+            submitButtons.forEach((button) => {
+                if (button !== clickedButton) {
+                    button.disabled = true;
+                    button.style.opacity = "0.7";
+                    button.style.cursor = "not-allowed";
+                }
+            });
+
+            if (clickedButton) {
+                clickedButton.textContent = "Processing...";
+            }
+        });
+    });
 
 </script>
 
