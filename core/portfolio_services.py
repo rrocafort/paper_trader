@@ -141,11 +141,17 @@ def build_holdings_and_summary(request_user, portfolio, holdings):
     total_value = ZERO
 
     for h in holdings:
-        stock = yf.Ticker(h.symbol)
-        data = stock.history(period="1d")
+        current_price = Decimal("0.00")
+        data = None
 
-        if data.empty:
-            continue
+        try:
+            stock = yf.Ticker(h.symbol)
+            data = stock.history(period="1d")
+
+            if data is not None and not data.empty and "Close" in data.columns:
+                current_price = Decimal(str(data["Close"].iloc[-1]))
+        except Exception:
+            pass
 
         current_price = Decimal(str(data["Close"].iloc[-1]))
         market_value = current_price * Decimal(str(h.shares))
@@ -216,7 +222,10 @@ def build_holdings_and_summary(request_user, portfolio, holdings):
     today = date.today()
     existing = PortfolioSnapshot.objects.filter(user=request_user, date=today).first()
 
-    if not existing:
+    if existing:
+        existing.total_value = total_portfolio_value
+        existing.save(update_fields=["total_value"])
+    else:
         PortfolioSnapshot.objects.create(
             user=request_user,
             total_value=total_portfolio_value

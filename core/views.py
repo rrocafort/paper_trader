@@ -1,31 +1,37 @@
 from decimal import Decimal
 import json
 
-import yfinance as yf
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import render, redirect
-from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth import login
 from django.contrib import messages
+from django.contrib.auth import login
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import UserCreationForm
+from django.shortcuts import render, redirect
 
-from .models import Portfolio, Trade, Holding
-from .portfolio_services import (
-    ZERO,
-    fmt_money,
-    fmt_shares,
-    build_holdings_and_summary,
-)
+from .models import Portfolio, Holding
+from .portfolio_services import ZERO, fmt_money, build_holdings_and_summary
 from .market_data_services import get_stock_lookup_data
 from .trade_services import execute_trade
 
 
+# -------------------------
+# Authentication views
+# -------------------------
+def signup_view(request):
+    if request.method == "POST":
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            return redirect("home")
+    else:
+        form = UserCreationForm()
+
+    return render(request, "signup.html", {"form": form})
 
 
-TWOPLACES = Decimal("0.01")
-ZERO = Decimal("0")
-"""
-
-
+# -------------------------
+# Dashboard / home view
+# -------------------------
 def home(request):
     symbol = (request.GET.get("symbol") or "AAPL").upper().strip()
     range_option = request.GET.get("range") or "1y"
@@ -69,7 +75,7 @@ def home(request):
     volume_colors = []
 
     if request.user.is_authenticated:
-        portfolio, created = Portfolio.objects.get_or_create(user=request.user)
+        portfolio, _ = Portfolio.objects.get_or_create(user=request.user)
         holdings = Holding.objects.filter(portfolio=portfolio)
 
         portfolio_data = build_holdings_and_summary(
@@ -157,24 +163,13 @@ def home(request):
         "volumes": json.dumps(volumes),
         "volume_colors": json.dumps(volume_colors),
         "range_option": range_option,
-
         "stock_name": stock_name,
     })
 
 
-
-def signup(request):
-    if request.method == "POST":
-        form = UserCreationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            login(request, user)
-            return redirect("home")
-    else:
-        form = UserCreationForm()
-
-    return render(request, "signup.html", {"form": form})
-
+# -------------------------
+# Trade view
+# -------------------------
 @login_required
 def trade(request):
     if request.method != "POST":
@@ -214,4 +209,5 @@ def trade(request):
         messages.error(request, result["message"])
 
     return redirect(redirect_url)
-    """
+
+

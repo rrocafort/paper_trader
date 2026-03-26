@@ -21,17 +21,20 @@ from django.contrib.auth import views as auth_views
 from core.views import home, trade, signup_view
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path("admin/", admin.site.urls),
 
     # Home + Trade
-    path('', home, name='home'),
-    path('trade/', trade, name='trade'),
+    path("", home, name="home"),
+    path("trade/", trade, name="trade"),
 
     # Signup
-    path('signup/', signup_view, name='signup'),
+    path("signup/", signup_view, name="signup"),
 
     # Authentication
-    path('accounts/login/', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
-    path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path(
+        "accounts/login/",
+        auth_views.LoginView.as_view(template_name="login.html"),
+        name="login",
+    ),
+    path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
 ]
-
