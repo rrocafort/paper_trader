@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard-container">
+    <h1>Portfolio</h1>
+
+    <div class="summary-cards">
+        <div class="summary-card">
+            <p class="summary-label">Cash Balance</p>
+            <h3>{{ cash_balance_display }}</h3>
+        </div>
+
+        <div class="summary-card">
+            <p class="summary-label">Holdings Value</p>
+            <h3>{{ holdings_value_display }}</h3>
+        </div>
+
+        <div class="summary-card">
+            <p class="summary-label">Total Portfolio Value</p>
+            <h3>{{ total_portfolio_value_display }}</h3>
+        </div>
+
+        <div class="summary-card">
+            <p class="summary-label">Positions</p>
+            <h3>{{ positions_count }}</h3>
+        </div>
+    </div>
+
+    <div class="chart-card">
+        <h2>Portfolio Allocation</h2>
+        <div class="chart-box">
+            <canvas id="allocationChart"></canvas>
+        </div>
+    </div>
+
+    <div class="chart-card">
+        <h2>Portfolio Performance</h2>
+        <div class="line-chart-box">
+            <canvas id="performanceChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+    const allocationLabels = {{ allocation_labels|safe }};
+    const allocationWeights = {{ allocation_weights|safe }};
+
+    const perfDates = {{ perf_dates|safe }};
+    const perfValues = {{ perf_values|safe }};
+    const perfSma7 = {{ perf_sma7|safe }};
+    const perfSma30 = {{ perf_sma30|safe }};
+
+    const allocationCanvas = document.getElementById("allocationChart");
+    if (allocationCanvas && allocationLabels.length > 0 && allocationWeights.length > 0) {
+        new Chart(allocationCanvas, {
+            type: "doughnut",
+            data: {
+                labels: allocationLabels,
+                datasets: [{
+                    data: allocationWeights
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: "bottom"
+                    }
+                }
+            }
+        });
+    }
+
+    const performanceCanvas = document.getElementById("performanceChart");
+    if (performanceCanvas && perfDates.length > 0 && perfValues.length > 0) {
+        new Chart(performanceCanvas, {
+            type: "line",
+            data: {
+                labels: perfDates,
+                datasets: [
+                    {
+                        label: "Portfolio Value",
+                        data: perfValues,
+                        tension: 0.3
+                    },
+                    {
+                        label: "SMA 7",
+                        data: perfSma7,
+                        tension: 0.3
+                    },
+                    {
+                        label: "SMA 30",
+                        data: perfSma30,
+                        tension: 0.3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+    }
+</script>
+{% endblock %}

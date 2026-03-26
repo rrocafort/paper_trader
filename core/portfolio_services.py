@@ -142,18 +142,19 @@ def build_holdings_and_summary(request_user, portfolio, holdings):
 
     for h in holdings:
         current_price = Decimal("0.00")
-        data = None
 
         try:
             stock = yf.Ticker(h.symbol)
             data = stock.history(period="1d")
 
             if data is not None and not data.empty and "Close" in data.columns:
-                current_price = Decimal(str(data["Close"].iloc[-1]))
-        except Exception:
-            pass
+                close_value = data["Close"].iloc[-1]
 
-        current_price = Decimal(str(data["Close"].iloc[-1]))
+                if close_value is not None:
+                    current_price = Decimal(str(close_value))
+        except Exception:
+            current_price = Decimal("0.00")
+
         market_value = current_price * Decimal(str(h.shares))
 
         trades = Trade.objects.filter(

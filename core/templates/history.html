@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="history-page-header">
+        <h1>Trade History</h1>
+    </div>
+
+    <div class="history-table-card">
+        {% if trade_rows %}
+            <div class="history-table-wrapper">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Symbol</th>
+                            <th>Type</th>
+                            <th>Shares</th>
+                            <th>Price</th>
+                            <th>Value</th>
+                            <th>P/L</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in trade_rows %}
+                            <tr>
+                                <td>{{ t.timestamp|date:"m-d-y H:i" }}</td>
+                                <td>{{ t.symbol }}</td>
+                                <td>{{ t.trade_type }}</td>
+                                <td>{{ t.shares_display }}</td>
+                                <td>{{ t.price_display }}</td>
+                                <td>{{ t.trade_value_display }}</td>
+                                <td>
+                                    {% if t.pl_display %}
+                                        {{ t.pl_display }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p>No trades yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

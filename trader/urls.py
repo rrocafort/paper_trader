@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path
 from django.contrib.auth import views as auth_views
 
-from core.views import home, trade, signup_view
+from core.views import home, trade, signup_view, trade_history, portfolio_page, reset_account
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -37,4 +37,11 @@ urlpatterns = [
         name="login",
     ),
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
+
+    path("history/", trade_history, name="history"),
+
+    path("portfolio/", portfolio_page, name="portfolio"),
+
+    # Reset - Account
+    path("reset/", reset_account, name="reset"),
 ]

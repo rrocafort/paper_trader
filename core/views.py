@@ -7,10 +7,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.shortcuts import render, redirect
 
-from .models import Portfolio, Holding
+from .models import Portfolio, Holding, PortfolioSnapshot
 from .portfolio_services import ZERO, fmt_money, build_holdings_and_summary
 from .market_data_services import get_stock_lookup_data
 from .trade_services import execute_trade
+
+from django.views.decorators.http import require_POST
+
 
 
 # -------------------------
@@ -210,4 +213,78 @@ def trade(request):
 
     return redirect(redirect_url)
 
+# -------------------------
+# Trade History
+# -------------------------
 
+@login_required
+def trade_history(request):
+    portfolio, _ = Portfolio.objects.get_or_create(user=request.user)
+    holdings = Holding.objects.filter(portfolio=portfolio)
+
+    portfolio_data = build_holdings_and_summary(
+        request_user=request.user,
+        portfolio=portfolio,
+        holdings=holdings,
+    )
+
+    trade_rows = portfolio_data["trade_rows"]
+
+    return render(request, "history.html", {
+        "trade_rows": trade_rows,
+    })
+
+# -------------------------
+# Portfolio Page
+# -------------------------
+
+@login_required
+def portfolio_page(request):
+    portfolio, _ = Portfolio.objects.get_or_create(user=request.user)
+    holdings = Holding.objects.filter(portfolio=portfolio)
+
+    portfolio_data = build_holdings_and_summary(
+        request_user=request.user,
+        portfolio=portfolio,
+        holdings=holdings,
+    )
+
+    return render(request, "portfolio.html", {
+        "portfolio": portfolio,
+        "holdings": portfolio_data["holdings_data"],
+        "cash_balance_display": portfolio_data["cash_balance_display"],
+        "holdings_value_display": portfolio_data["holdings_value_display"],
+        "total_portfolio_value_display": portfolio_data["total_portfolio_value_display"],
+        "positions_count": portfolio_data["positions_count"],
+        "allocation_labels": portfolio_data["allocation_labels_json"],
+        "allocation_weights": portfolio_data["allocation_weights_json"],
+        "perf_dates": portfolio_data["perf_dates_json"],
+        "perf_values": portfolio_data["perf_values_json"],
+        "perf_sma7": portfolio_data["sma7_json"],
+        "perf_sma30": portfolio_data["sma30_json"],
+        "drawdowns": portfolio_data["drawdowns_json"],
+        "max_drawdown": portfolio_data["max_drawdown"],
+        "ytd_return": portfolio_data["ytd_return"],
+        "one_year_return": portfolio_data["one_year_return"],
+    })
+
+# -------------------------
+# Reset Account
+# -------------------------
+
+@login_required
+def reset_account(request):
+    if request.method == "POST":
+        portfolio, _ = Portfolio.objects.get_or_create(user=request.user)
+
+        portfolio.cash_balance = Decimal("100000.00")
+        portfolio.save()
+
+        Holding.objects.filter(portfolio=portfolio).delete()
+        portfolio.trade_set.all().delete()
+        PortfolioSnapshot.objects.filter(user=request.user).delete()
+
+        messages.success(request, "Account has been reset.")
+        return redirect("home")
+
+    return render(request, "reset_confirm.html")
