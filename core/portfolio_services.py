@@ -10,7 +10,7 @@ from .models import PortfolioSnapshot, Trade
 
 
 TWOPLACES = Decimal("0.01")
-ZERO = Decimal("0")
+ZERO = Decimal("0.00")
 
 
 def q2(value):
@@ -194,8 +194,8 @@ def build_holdings_and_summary(request_user, portfolio, holdings):
             "percent_gain_display": f"{q2(percent_gain):,.2f}%",
         })
 
-    cash_balance = portfolio.cash_balance
-    total_portfolio_value = cash_balance + total_value
+    cash_balance = Decimal(str(portfolio.cash_balance or "0.00"))
+    total_portfolio_value = q2(cash_balance + total_value)
 
     cash_balance_display = fmt_money(cash_balance)
     holdings_value_display = fmt_money(total_value)
