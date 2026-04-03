@@ -1,4 +1,5 @@
 Paper Trading Simulator (Django)
+**Please review the cleanup-rebuild branch for the final version of the project**
 Overview
 
 This project is a Paper Trading Web Application built with Python and Django that allows users to simulate trading financial instruments (stocks) using real market data.
