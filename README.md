@@ -223,7 +223,7 @@ If extended further, the application could include:
 
 **Author**
 Name: Rainier Rocafort
-Description: Developed as part of a coding bootcamp portfolio project.
+Description: Developed as part of a coding bootcamp portfolio project offered by Florida Atlantic University (FAU)
 
 **License**
 
