@@ -126,6 +126,7 @@ Installation & Setup
 
 3. Install Dependencies
     pip install -r requirements.txt
+    The project uses a minimal set of dependencies focused on Django, market data retrieval (yfinance), and data processing (pandas, numpy).
 
 4. Apply Database Migrations
     python manage.py migrate

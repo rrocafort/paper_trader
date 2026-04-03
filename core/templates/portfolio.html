@@ -43,7 +43,7 @@
 
 <script>
     const allocationLabels = {{ allocation_labels|safe }};
-    const allocationWeights = {{ allocation_weights|safe }};
+    const allocationValues = {{ allocation_values|safe }};
 
     const perfDates = {{ perf_dates|safe }};
     const perfValues = {{ perf_values|safe }};
@@ -51,13 +51,13 @@
     const perfSma30 = {{ perf_sma30|safe }};
 
     const allocationCanvas = document.getElementById("allocationChart");
-    if (allocationCanvas && allocationLabels.length > 0 && allocationWeights.length > 0) {
+    if (allocationCanvas && allocationLabels.length > 0 && allocationValues.length > 0) {
         new Chart(allocationCanvas, {
             type: "doughnut",
             data: {
                 labels: allocationLabels,
                 datasets: [{
-                    data: allocationWeights
+                    data: allocationValues
                 }]
             },
             options: {

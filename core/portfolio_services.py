@@ -203,19 +203,28 @@ def build_holdings_and_summary(request_user, portfolio, holdings):
     positions_count = len(holdings_data)
 
     allocation_labels = []
-    allocation_weights = []
+    allocation_values = []
 
+    cash_value = float(cash_balance)
+
+    # Add cash as actual dollar value
+    if cash_value > 0:
+        allocation_labels.append("Cash")
+        allocation_values.append(round(cash_value, 2))
+
+    # Add each holding as actual market value
     for h in holdings_data:
         ticker = h["symbol"]
         value = float(h["market_value"])
 
-        if float(total_portfolio_value) > 0:
-            weight = (value / float(total_portfolio_value)) * 100
-        else:
-            weight = 0
+        if value > 0:
+            allocation_labels.append(ticker)
+            allocation_values.append(round(value, 2))
 
-        allocation_labels.append(ticker)
-        allocation_weights.append(round(weight, 2))
+    # Fallback so chart does not break
+    if not allocation_labels:
+        allocation_labels = ["No Data"]
+        allocation_values = [1.0]
 
     trade_history = Trade.objects.filter(portfolio=portfolio).order_by("timestamp", "id")
     trade_rows = build_trade_rows_with_realized_pl(trade_history)
@@ -304,14 +313,14 @@ def build_holdings_and_summary(request_user, portfolio, holdings):
 
         "trade_rows": trade_rows,
 
-        "allocation_labels_json": json.dumps(allocation_labels),
-        "allocation_weights_json": json.dumps(allocation_weights),
+        "allocation_labels": json.dumps(allocation_labels),
+        "allocation_values": json.dumps(allocation_values),
 
-        "perf_dates_json": json.dumps(perf_dates),
-        "perf_values_json": json.dumps(perf_values),
-        "sma7_json": json.dumps(sma7),
-        "sma30_json": json.dumps(sma30),
-        "drawdowns_json": json.dumps(drawdowns),
+        "perf_dates": json.dumps(perf_dates),
+        "perf_values": json.dumps(perf_values),
+        "perf_sma7": json.dumps(sma7),
+        "perf_sma30": json.dumps(sma30),
+        "drawdowns": json.dumps(drawdowns),
         "max_drawdown": max_drawdown,
         "ytd_return": ytd_return,
         "one_year_return": one_year_return,

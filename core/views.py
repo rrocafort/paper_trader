@@ -15,11 +15,15 @@ from .trade_services import execute_trade
 from django.views.decorators.http import require_POST
 
 
-
-# -------------------------
-# Authentication views
-# -------------------------
+# =========================================================
+# AUTHENTICATION VIEWS
+# =========================================================
 def signup_view(request):
+    """
+    Handle user registration.
+    If the signup form is valid, create the user, log them in,
+    and redirect them to the home page.
+    """
     if request.method == "POST":
         form = UserCreationForm(request.POST)
         if form.is_valid():
@@ -32,13 +36,24 @@ def signup_view(request):
     return render(request, "signup.html", {"form": form})
 
 
-# -------------------------
-# Dashboard / home view
-# -------------------------
+# =========================================================
+# HOME / DASHBOARD VIEW
+# =========================================================
 def home(request):
+    """
+    Main dashboard page.
+    Shows stock lookup/chart data for all users.
+    If the user is authenticated, also shows portfolio/trading data.
+    """
+    # -------------------------
+    # Stock lookup inputs
+    # -------------------------
     symbol = (request.GET.get("symbol") or "AAPL").upper().strip()
     range_option = request.GET.get("range") or "1y"
 
+    # -------------------------
+    # Default portfolio values
+    # -------------------------
     portfolio = None
     holdings_data = []
     total_value = ZERO
@@ -51,18 +66,22 @@ def home(request):
     total_portfolio_value_display = fmt_money(ZERO)
     positions_count = 0
 
-    allocation_labels_json = json.dumps([])
-    allocation_weights_json = json.dumps([])
+    allocation_labels = json.dumps([])
+    allocation_values = json.dumps([])
 
-    perf_dates_json = json.dumps([])
-    perf_values_json = json.dumps([])
-    sma7_json = json.dumps([])
-    sma30_json = json.dumps([])
-    drawdowns_json = json.dumps([])
+    perf_dates = json.dumps([])
+    perf_values = json.dumps([])
+    perf_sma7 = json.dumps([])
+    perf_sma30 = json.dumps([])
+    drawdowns = json.dumps([])
+
     max_drawdown = 0
     ytd_return = 0
     one_year_return = 0
 
+    # -------------------------
+    # Default stock lookup values
+    # -------------------------
     price = None
     timestamp = None
     change = None
@@ -77,6 +96,9 @@ def home(request):
     volumes = []
     volume_colors = []
 
+    # -------------------------
+    # Authenticated user portfolio data
+    # -------------------------
     if request.user.is_authenticated:
         portfolio, _ = Portfolio.objects.get_or_create(user=request.user)
         holdings = Holding.objects.filter(portfolio=portfolio)
@@ -99,18 +121,22 @@ def home(request):
 
         trade_rows = portfolio_data["trade_rows"]
 
-        allocation_labels_json = portfolio_data["allocation_labels_json"]
-        allocation_weights_json = portfolio_data["allocation_weights_json"]
+        allocation_labels = portfolio_data["allocation_labels"]
+        allocation_values = portfolio_data["allocation_values"]
 
-        perf_dates_json = portfolio_data["perf_dates_json"]
-        perf_values_json = portfolio_data["perf_values_json"]
-        sma7_json = portfolio_data["sma7_json"]
-        sma30_json = portfolio_data["sma30_json"]
-        drawdowns_json = portfolio_data["drawdowns_json"]
+        perf_dates = portfolio_data["perf_dates"]
+        perf_values = portfolio_data["perf_values"]
+        perf_sma7 = portfolio_data["perf_sma7"]
+        perf_sma30 = portfolio_data["perf_sma30"]
+        drawdowns = portfolio_data["drawdowns"]
+
         max_drawdown = portfolio_data["max_drawdown"]
         ytd_return = portfolio_data["ytd_return"]
         one_year_return = portfolio_data["one_year_return"]
 
+    # -------------------------
+    # Stock market lookup/chart data
+    # -------------------------
     stock_data = get_stock_lookup_data(symbol, range_option)
 
     price = stock_data["price"]
@@ -127,6 +153,9 @@ def home(request):
     volumes = stock_data["volumes"]
     volume_colors = stock_data["volume_colors"]
 
+    # -------------------------
+    # Render dashboard
+    # -------------------------
     return render(request, "home.html", {
         "portfolio": portfolio,
         "holdings": holdings_data,
@@ -141,14 +170,14 @@ def home(request):
 
         "trade_rows": trade_rows,
 
-        "allocation_labels": allocation_labels_json,
-        "allocation_weights": allocation_weights_json,
+        "allocation_labels": allocation_labels,
+        "allocation_values": allocation_values,
 
-        "perf_dates": perf_dates_json,
-        "perf_values": perf_values_json,
-        "perf_sma7": sma7_json,
-        "perf_sma30": sma30_json,
-        "drawdowns": drawdowns_json,
+        "perf_dates": perf_dates,
+        "perf_values": perf_values,
+        "perf_sma7": perf_sma7,
+        "perf_sma30": perf_sma30,
+        "drawdowns": drawdowns,
         "max_drawdown": max_drawdown,
         "ytd_return": ytd_return,
         "one_year_return": one_year_return,
@@ -170,11 +199,16 @@ def home(request):
     })
 
 
-# -------------------------
-# Trade view
-# -------------------------
+# =========================================================
+# TRADE EXECUTION VIEW
+# =========================================================
 @login_required
 def trade(request):
+    """
+    Handle buy/sell requests.
+    Validates symbol, shares, and trade type before passing
+    the request to the trade service.
+    """
     if request.method != "POST":
         return redirect("home")
 
@@ -185,6 +219,9 @@ def trade(request):
 
     redirect_url = f"/?symbol={symbol}&range={range_option}"
 
+    # -------------------------
+    # Basic request validation
+    # -------------------------
     if not symbol or not shares_raw or trade_type not in ["BUY", "SELL"]:
         messages.error(request, "Invalid trade request.")
         return redirect(redirect_url)
@@ -199,6 +236,9 @@ def trade(request):
         messages.error(request, "Shares must be greater than zero.")
         return redirect(redirect_url)
 
+    # -------------------------
+    # Execute trade
+    # -------------------------
     result = execute_trade(
         user=request.user,
         symbol=symbol,
@@ -213,12 +253,15 @@ def trade(request):
 
     return redirect(redirect_url)
 
-# -------------------------
-# Trade History
-# -------------------------
 
+# =========================================================
+# TRADE HISTORY VIEW
+# =========================================================
 @login_required
 def trade_history(request):
+    """
+    Display the user's trade history table.
+    """
     portfolio, _ = Portfolio.objects.get_or_create(user=request.user)
     holdings = Holding.objects.filter(portfolio=portfolio)
 
@@ -228,18 +271,25 @@ def trade_history(request):
         holdings=holdings,
     )
 
-    trade_rows = portfolio_data["trade_rows"]
-
     return render(request, "history.html", {
-        "trade_rows": trade_rows,
+        "trade_rows": portfolio_data["trade_rows"],
     })
 
-# -------------------------
-# Portfolio Page
-# -------------------------
 
+# =========================================================
+# PORTFOLIO PAGE VIEW
+# =========================================================
 @login_required
 def portfolio_page(request):
+    """
+    Display the portfolio summary page:
+    - cash balance
+    - holdings value
+    - total portfolio value
+    - positions count
+    - allocation chart
+    - performance chart
+    """
     portfolio, _ = Portfolio.objects.get_or_create(user=request.user)
     holdings = Holding.objects.filter(portfolio=portfolio)
 
@@ -252,28 +302,39 @@ def portfolio_page(request):
     return render(request, "portfolio.html", {
         "portfolio": portfolio,
         "holdings": portfolio_data["holdings_data"],
+
         "cash_balance_display": portfolio_data["cash_balance_display"],
         "holdings_value_display": portfolio_data["holdings_value_display"],
         "total_portfolio_value_display": portfolio_data["total_portfolio_value_display"],
         "positions_count": portfolio_data["positions_count"],
-        "allocation_labels": portfolio_data["allocation_labels_json"],
-        "allocation_weights": portfolio_data["allocation_weights_json"],
-        "perf_dates": portfolio_data["perf_dates_json"],
-        "perf_values": portfolio_data["perf_values_json"],
-        "perf_sma7": portfolio_data["sma7_json"],
-        "perf_sma30": portfolio_data["sma30_json"],
-        "drawdowns": portfolio_data["drawdowns_json"],
+
+        "allocation_labels": portfolio_data["allocation_labels"],
+        "allocation_values": portfolio_data["allocation_values"],
+
+        "perf_dates": portfolio_data["perf_dates"],
+        "perf_values": portfolio_data["perf_values"],
+        "perf_sma7": portfolio_data["perf_sma7"],
+        "perf_sma30": portfolio_data["perf_sma30"],
+
+        "drawdowns": portfolio_data["drawdowns"],
         "max_drawdown": portfolio_data["max_drawdown"],
         "ytd_return": portfolio_data["ytd_return"],
         "one_year_return": portfolio_data["one_year_return"],
     })
 
-# -------------------------
-# Reset Account
-# -------------------------
 
+# =========================================================
+# RESET ACCOUNT VIEW
+# =========================================================
 @login_required
 def reset_account(request):
+    """
+    Reset the user's account back to the default state:
+    - cash balance reset to 100,000
+    - holdings deleted
+    - trade history deleted
+    - portfolio snapshots deleted
+    """
     if request.method == "POST":
         portfolio, _ = Portfolio.objects.get_or_create(user=request.user)
 
